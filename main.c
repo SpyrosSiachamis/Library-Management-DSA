@@ -8,6 +8,8 @@ library_t library;
 void setSlots(int slots);
 void processEvent(char *data);
 
+genre_t *genres;
+
 int main(int argc, char *argv[])
 {
     if (argc == 1)
@@ -27,7 +29,7 @@ int main(int argc, char *argv[])
         }
         while ((fgets(line, sizeof(line), file)))
         {
-            if (line[0] == '\n' || line[0] == '#')
+            if (line[0] == '\n' || line[0] == '#') /* Ignores newline character and comments*/
             {
                 continue;
             }
@@ -51,8 +53,8 @@ void setSlots(int slots)
 */
 void processEvent(char *data)
 {
+    int slots;
     if (strncmp(data, "S ", 2) == 0) {
-        int slots;
         if (sscanf(data, "S %d", &slots) == 1)
         {
             setSlots(slots);
@@ -64,13 +66,32 @@ void processEvent(char *data)
     }
     else if (strncmp(data, "G ", 2) == 0)
     {
-        /* code */
+        // Handle G command
     }
     
     else if (strncmp(data, "BK ", 3) == 0) {
         // Handle BK command
-    } else if (strncmp(data, "PG ", 3) == 0) {
+    } 
+    else if (strncmp(data, "M ", 2) == 0) {
+        // Handle M command
+    }
+    else if (strncmp(data, "L ", 2) == 0) {
+        // Handle L command
+    }
+    else if (strncmp(data, "R ", 2) == 0) {
+        // Handle R command
+    }
+    else if (strncmp(data, "PG ", 3) == 0) {
         // Handle PG command
+    }
+    else if (strncmp(data, "D ", 2) == 0) {
+        // Handle D command
+    }
+    else if (strncmp(data, "PD ", 3) == 0) {
+        // Handle PD command
+    }
+    else if (strncmp(data, "PM ", 3) == 0) {
+        // Handle PM command
     }
         
 }
