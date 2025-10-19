@@ -7,6 +7,7 @@ library_t library;
 
 void setSlots(int slots);
 void processEvent(char *data);
+void insertGenre(library_t *library, genre_t *genreNode);
 
 int main(int argc, char *argv[])
 {
@@ -58,6 +59,7 @@ void setSlots(int slots)
 /*
     Function to process events and it's data
     It reads the line using sscanf by describing the format of the line.
+    Based on the line (data) it takes, it runs a different event.
 */
 void processEvent(char *data)
 {
@@ -86,7 +88,7 @@ void processEvent(char *data)
             if (genreNode == NULL)
             {
                 printf("Failure to allocate genre memory\n");
-                printf("Ignored\n");
+                printf("IGNORED\n");
             }
             else
             {
@@ -96,83 +98,89 @@ void processEvent(char *data)
                 genreNode->books = NULL;
                 genreNode->next = NULL;
                 strcpy(genreNode->name, genre_name);
-
-                /* If library.genres list is NULL, make the new node the head */
-                if (library.genres == NULL)
-                {
-                    library.genres = genreNode;
-                }
-                else
-                {
-                    /*
-                        ------------------------------------- SOS ------------------------------------------
-                        Temporary insertion, planning to implement sorted insertion or to sort it afterwards
-                    */
-                    /* Traverse until second to last node to check for duplicates*/
-                    genre_t *tmp = library.genres;
-                    while (tmp->next != NULL)
-                    {
-                        if (tmp->gid == genreNode->gid)
-                        {
-                            free(genreNode);
-                            printf("Ignored\n");
-                            break;
-                        }
-                        tmp = tmp->next;
-                    }
-                    /* Check last genre node to ensure no duplicates*/
-                    if (tmp->gid == genreNode->gid)
-                    {
-                        free(genreNode);
-                        printf("Ignored\n");
-                    }
-                    /* If no duplicate gid is found, insert the genre to the singly linked list*/
-                    else
-                    {
-                        tmp->next = genreNode;
-                    }
-                }
+                insertGenre(&library, genreNode);
             }
-
-            // if (tmp == NULL)
-            // {
-            //     library.genres
-            // }
         }
+
+        else if (strncmp(data, "BK ", 3) == 0)
+        {
+            // Handle BK command
+        }
+        else if (strncmp(data, "M ", 2) == 0)
+        {
+            // Handle M command
+        }
+        else if (strncmp(data, "L ", 2) == 0)
+        {
+            // Handle L command
+        }
+        else if (strncmp(data, "R ", 2) == 0)
+        {
+            // Handle R command
+        }
+        else if (strncmp(data, "PG ", 3) == 0)
+        {
+            // Handle PG command
+        }
+        else if (strncmp(data, "D ", 2) == 0)
+        {
+            // Handle D command
+        }
+        else if (strncmp(data, "PD ", 3) == 0)
+        {
+            // Handle PD command
+        }
+        else if (strncmp(data, "PM ", 3) == 0)
+        {
+            // Handle PM command
+        }
+    }
+}
+
+/*  Function to insert Genre based on its ID, this will keep the Genre List sorted. 
+    Function runs on G event.
+*/
+void insertGenre(library_t *library, genre_t *genreNode)
+{
+    genre_t *tmp = library->genres;
+    genre_t *prev = NULL;
+    /* If the genre list is empty, make the new Genre it's head. */
+    if (library->genres == NULL)
+    {
+        library->genres = genreNode;
         printf("DONE\n");
-        // genre_t genre
+        return;
+    }
+    /* If list is not NULL and genreNode gid < head gid, make genreNode head of the list */
+    if (genreNode->gid < tmp->gid)
+    {
+        genreNode->next = tmp;
+        library->genres = genreNode;
+        printf("DONE\n");
+        return;
     }
 
-    else if (strncmp(data, "BK ", 3) == 0)
+    /* Traverse until second to last node to check for duplicates*/
+
+    while (tmp != NULL && tmp->gid < genreNode->gid)
     {
-        // Handle BK command
+        prev = tmp;
+        tmp = tmp->next;
     }
-    else if (strncmp(data, "M ", 2) == 0)
+
+    /* Check last genre node to ensure no duplicates*/
+    if (tmp != NULL && tmp->gid == genreNode->gid || (prev != NULL && prev->gid == genreNode->gid))
     {
-        // Handle M command
+        free(genreNode);
+        printf("IGNORED\n");
+        return;
     }
-    else if (strncmp(data, "L ", 2) == 0)
+
+    /* If no duplicate gid is found, insert the genre to the singly linked list*/
+    genreNode->next = tmp;
+    if (prev != NULL)
     {
-        // Handle L command
+        prev->next = genreNode;
     }
-    else if (strncmp(data, "R ", 2) == 0)
-    {
-        // Handle R command
-    }
-    else if (strncmp(data, "PG ", 3) == 0)
-    {
-        // Handle PG command
-    }
-    else if (strncmp(data, "D ", 2) == 0)
-    {
-        // Handle D command
-    }
-    else if (strncmp(data, "PD ", 3) == 0)
-    {
-        // Handle PD command
-    }
-    else if (strncmp(data, "PM ", 3) == 0)
-    {
-        // Handle PM command
-    }
+    printf("DONE\n");
 }
