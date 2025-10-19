@@ -104,6 +104,11 @@ void processEvent(char *data)
                 }
                 else
                 {
+                    /*
+                        ------------------------------------- SOS ------------------------------------------
+                        Temporary insertion, planning to implement sorted insertion or to sort it afterwards
+                    */
+                    /* Traverse until second to last node to check for duplicates*/
                     genre_t *tmp = library.genres;
                     while (tmp->next != NULL)
                     {
@@ -121,6 +126,7 @@ void processEvent(char *data)
                         free(genreNode);
                         printf("Ignored\n");
                     }
+                    /* If no duplicate gid is found, insert the genre to the singly linked list*/
                     else
                     {
                         tmp->next = genreNode;
