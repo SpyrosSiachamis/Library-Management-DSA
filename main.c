@@ -35,6 +35,13 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
+    /* Genre printing test */
+    genre_t *tmp = library.genres;
+    while (tmp != NULL)
+    {
+        printf("Genre Name: %s | Genre ID: %d\n", tmp->name, tmp->gid);
+        tmp = tmp->next;
+    }
     return 0;
 }
 
@@ -71,7 +78,7 @@ void processEvent(char *data)
     {
         int genre_id;
         char genre_name[NAME_MAX];
-        
+
         /* %[^\"] reads all chars until closing quotation character "*/
         if (sscanf(data, "G %d \"%[^\"]\"", &genre_id, genre_name) == 2)
         {
@@ -83,11 +90,42 @@ void processEvent(char *data)
             }
             else
             {
+                /* Initialize Genre Node*/
+
                 genreNode->gid = genre_id;
+                genreNode->books = NULL;
+                genreNode->next = NULL;
                 strcpy(genreNode->name, genre_name);
-                /* Test outputs */
-                printf("Genre ID: %d\n", genreNode->gid);
-                printf("Genre Name: %s\n", genreNode->name);
+
+                /* If library.genres list is NULL, make the new node the head */
+                if (library.genres == NULL)
+                {
+                    library.genres = genreNode;
+                }
+                else
+                {
+                    genre_t *tmp = library.genres;
+                    while (tmp->next != NULL)
+                    {
+                        if (tmp->gid == genreNode->gid)
+                        {
+                            free(genreNode);
+                            printf("Ignored\n");
+                            break;
+                        }
+                        tmp = tmp->next;
+                    }
+                    /* Check last genre node to ensure no duplicates*/
+                    if (tmp->gid == genreNode->gid)
+                    {
+                        free(genreNode);
+                        printf("Ignored\n");
+                    }
+                    else
+                    {
+                        tmp->next = genreNode;
+                    }
+                }
             }
 
             // if (tmp == NULL)
