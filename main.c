@@ -93,6 +93,8 @@ void processEvent(char *data)
                 genreNode->books = NULL;
                 genreNode->next = NULL;
                 strcpy(genreNode->name, genre_name);
+
+                /* Insert the genre in the singly linked list for genres */
                 insertGenre(&library, genreNode);
             }
         }
@@ -115,6 +117,7 @@ void processEvent(char *data)
             bookNode->bid = book_ID;
             bookNode->gid = genre_ID;
             strcpy(bookNode->title, book_title);
+            /* Test printf to assure data parsed correctly */
             printf("Book Title: %s\nBook gid: %d\nBook bid: %d\n",bookNode->title, bookNode->gid, bookNode->bid);
         }
 
@@ -207,6 +210,12 @@ void insertGenre(library_t *library, genre_t *genreNode)
     printf("DONE\n");
 }
 
+/*  
+    Function to insert Book based on its ID, this will keep the Book doubly linked List.
+    The insertion is sorted based on the avg rating (highest to lowest).
+    If rating is equal, sorting is based on bid
+    Function runs on BK event.
+*/
 void insertBook(library_t *library, book_t book)
 {
 
