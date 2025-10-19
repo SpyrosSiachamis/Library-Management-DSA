@@ -8,8 +8,6 @@ library_t library;
 void setSlots(int slots);
 void processEvent(char *data);
 
-genre_t *genres;
-
 int main(int argc, char *argv[])
 {
     if (argc == 1)
@@ -28,7 +26,8 @@ int main(int argc, char *argv[])
         }
         while ((fgets(line, sizeof(line), file)))
         {
-            if (line[0] == '\n' || line[0] == '#') /* Ignores newline character and comments*/
+            /* Ignores newline character and comments */
+            if (line[0] == '\n' || line[0] == '#')
             {
                 continue;
             }
@@ -36,24 +35,29 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
-    printf("%d", SLOTS);
-    printf("\n");
     return 0;
 }
 
+/*
+    Sets the total number of available display slots for the library.
+    These get allocated later on for every genre respectively.
+*/
 void setSlots(int slots)
 {
     SLOTS = slots;
     printf("DONE\n");
 }
+
 /*
-    Helper function to process events and it's data
+    Function to process events and it's data
     It reads the line using sscanf by describing the format of the line.
 */
 void processEvent(char *data)
 {
-    int slots;
-    if (strncmp(data, "S ", 2) == 0) {
+
+    if (strncmp(data, "S", 1) == 0)
+    {
+        int slots;
         if (sscanf(data, "S %d", &slots) == 1)
         {
             setSlots(slots);
@@ -63,34 +67,68 @@ void processEvent(char *data)
             printf("Failure to add slots.\n");
         }
     }
-    else if (strncmp(data, "G ", 2) == 0)
+    else if (strncmp(data, "G", 1) == 0)
     {
-        // Handle G command
+        int genre_id;
+        char genre_name[NAME_MAX];
+        
+        /* %[^\"] reads all chars until closing quotation character "*/
+        if (sscanf(data, "G %d \"%[^\"]\"", &genre_id, genre_name) == 2)
+        {
+            genre_t *genreNode = (genre_t *)malloc(sizeof(genre_t));
+            if (genreNode == NULL)
+            {
+                printf("Failure to allocate genre memory\n");
+                printf("Ignored\n");
+            }
+            else
+            {
+                genreNode->gid = genre_id;
+                strcpy(genreNode->name, genre_name);
+                /* Test outputs */
+                printf("Genre ID: %d\n", genreNode->gid);
+                printf("Genre Name: %s\n", genreNode->name);
+            }
+
+            // if (tmp == NULL)
+            // {
+            //     library.genres
+            // }
+        }
+        printf("DONE\n");
+        // genre_t genre
     }
-    
-    else if (strncmp(data, "BK ", 3) == 0) {
+
+    else if (strncmp(data, "BK ", 3) == 0)
+    {
         // Handle BK command
-    } 
-    else if (strncmp(data, "M ", 2) == 0) {
+    }
+    else if (strncmp(data, "M ", 2) == 0)
+    {
         // Handle M command
     }
-    else if (strncmp(data, "L ", 2) == 0) {
+    else if (strncmp(data, "L ", 2) == 0)
+    {
         // Handle L command
     }
-    else if (strncmp(data, "R ", 2) == 0) {
+    else if (strncmp(data, "R ", 2) == 0)
+    {
         // Handle R command
     }
-    else if (strncmp(data, "PG ", 3) == 0) {
+    else if (strncmp(data, "PG ", 3) == 0)
+    {
         // Handle PG command
     }
-    else if (strncmp(data, "D ", 2) == 0) {
+    else if (strncmp(data, "D ", 2) == 0)
+    {
         // Handle D command
     }
-    else if (strncmp(data, "PD ", 3) == 0) {
+    else if (strncmp(data, "PD ", 3) == 0)
+    {
         // Handle PD command
     }
-    else if (strncmp(data, "PM ", 3) == 0) {
+    else if (strncmp(data, "PM ", 3) == 0)
+    {
         // Handle PM command
     }
-        
 }
