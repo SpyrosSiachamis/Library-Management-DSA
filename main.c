@@ -5,9 +5,13 @@
 int SLOTS;
 library_t library;
 
+/*
+    Function declarations
+*/
 void setSlots(int slots);
 void processEvent(char *data);
 void insertGenre(library_t *library, genre_t *genreNode);
+void insertBook(library_t *library, book_t book);
 
 int main(int argc, char *argv[])
 {
@@ -18,6 +22,7 @@ int main(int argc, char *argv[])
     }
     else
     {
+        printf("LIBRARY MANAGEMENT SYSTEM PROJECT\ncsd5503\n--------------------------\n");
         FILE *file = fopen(argv[1], "r");
         char line[256];
         if (file == NULL)
@@ -36,24 +41,14 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
-    /* Genre printing test */
-    genre_t *tmp = library.genres;
-    while (tmp != NULL)
-    {
-        printf("Genre Name: %s | Genre ID: %d\n", tmp->name, tmp->gid);
-        tmp = tmp->next;
-    }
+    // /* Genre printing test */
+    // genre_t *tmp = library.genres;
+    // while (tmp != NULL)
+    // {
+    //     printf("Genre Name: %s | Genre ID: %d\n", tmp->name, tmp->gid);
+    //     tmp = tmp->next;
+    // }
     return 0;
-}
-
-/*
-    Sets the total number of available display slots for the library.
-    These get allocated later on for every genre respectively.
-*/
-void setSlots(int slots)
-{
-    SLOTS = slots;
-    printf("DONE\n");
 }
 
 /*
@@ -101,43 +96,71 @@ void processEvent(char *data)
                 insertGenre(&library, genreNode);
             }
         }
+    }
 
-        else if (strncmp(data, "BK ", 3) == 0)
+    else if (strncmp(data, "BK ", 3) == 0)
+    {
+        int book_ID;
+        int genre_ID;
+        char book_title[TITLE_MAX];
+        /* %[^\"] reads all chars until closing quotation character (Book title) "*/
+        if (sscanf(data, "BK %d %d \"%[^\"]\"", &book_ID, &genre_ID, &book_title) == 3)
         {
-            // Handle BK command
+            book_t *bookNode = (book_t*)malloc(sizeof(book_t));
+            if (bookNode == NULL)
+            {
+                printf("Failure to allocate book memory\n");
+                printf("IGNORED\n");
+            }
+            bookNode->bid = book_ID;
+            bookNode->gid = genre_ID;
+            strcpy(bookNode->title, book_title);
+            printf("Book Title: %s\nBook gid: %d\nBook bid: %d\n",bookNode->title, bookNode->gid, bookNode->bid);
         }
-        else if (strncmp(data, "M ", 2) == 0)
-        {
-            // Handle M command
-        }
-        else if (strncmp(data, "L ", 2) == 0)
-        {
-            // Handle L command
-        }
-        else if (strncmp(data, "R ", 2) == 0)
-        {
-            // Handle R command
-        }
-        else if (strncmp(data, "PG ", 3) == 0)
-        {
-            // Handle PG command
-        }
-        else if (strncmp(data, "D ", 2) == 0)
-        {
-            // Handle D command
-        }
-        else if (strncmp(data, "PD ", 3) == 0)
-        {
-            // Handle PD command
-        }
-        else if (strncmp(data, "PM ", 3) == 0)
-        {
-            // Handle PM command
-        }
+
+    }
+    else if (strncmp(data, "M ", 2) == 0)
+    {
+        // Handle M command
+    }
+    else if (strncmp(data, "L ", 2) == 0)
+    {
+        // Handle L command
+    }
+    else if (strncmp(data, "R ", 2) == 0)
+    {
+        // Handle R command
+    }
+    else if (strncmp(data, "PG ", 3) == 0)
+    {
+        // Handle PG command
+    }
+    else if (strncmp(data, "D ", 2) == 0)
+    {
+        // Handle D command
+    }
+    else if (strncmp(data, "PD ", 3) == 0)
+    {
+        // Handle PD command
+    }
+    else if (strncmp(data, "PM ", 3) == 0)
+    {
+        // Handle PM command
     }
 }
 
-/*  Function to insert Genre based on its ID, this will keep the Genre List sorted. 
+/*
+    Sets the total number of available display slots for the library.
+    These get allocated later on for every genre respectively.
+*/
+void setSlots(int slots)
+{
+    SLOTS = slots;
+    printf("DONE\n");
+}
+
+/*  
+    Function to insert Genre based on its ID, this will keep the Genre List sorted.
     Function runs on G event.
 */
 void insertGenre(library_t *library, genre_t *genreNode)
@@ -161,7 +184,6 @@ void insertGenre(library_t *library, genre_t *genreNode)
     }
 
     /* Traverse until second to last node to check for duplicates*/
-
     while (tmp != NULL && tmp->gid < genreNode->gid)
     {
         prev = tmp;
@@ -183,4 +205,9 @@ void insertGenre(library_t *library, genre_t *genreNode)
         prev->next = genreNode;
     }
     printf("DONE\n");
+}
+
+void insertBook(library_t *library, book_t book)
+{
+
 }
