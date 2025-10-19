@@ -21,7 +21,6 @@ int main(int argc, char *argv[])
     {
         FILE *file = fopen(argv[1], "r");
         char line[256];
-        printf("%s\n%s\n", argv[0], argv[1]);
         if (file == NULL)
         {
             printf("Error opening file, end program\n");
