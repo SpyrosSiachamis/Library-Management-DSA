@@ -12,6 +12,7 @@ void setSlots(int slots);
 void processEvent(char *data);
 void insertGenre(library_t *library, genre_t *genreNode);
 void insertBook(genre_t *genre, book_t *book);
+genre_t *createGenre(int gid, char name[NAME_MAX]);
 
 int main(int argc, char *argv[])
 {
@@ -48,9 +49,9 @@ int main(int argc, char *argv[])
         printf("EDW VLAKA\n");
     }
     book_t *tmp = g->books;
-    while (tmp!=NULL)
+    while (tmp != NULL)
     {
-        printf("Book: %s\n",tmp->title);
+        printf("Book: %s\n", tmp->title);
         tmp = tmp->next;
     }
     return 0;
@@ -84,22 +85,11 @@ void processEvent(char *data)
         /* %[^\"] reads all chars until closing quotation character "*/
         if (sscanf(data, "G %d \"%[^\"]\"", &genre_id, genre_name) == 2)
         {
-            genre_t *genreNode = (genre_t *)malloc(sizeof(genre_t));
-            if (genreNode == NULL)
-            {
-                printf("Failure to allocate genre memory\n");
-                printf("IGNORED\n");
-                return;
-            }
             /* Initialize Genre Node*/
-
-            genreNode->gid = genre_id;
-            genreNode->books = NULL;
-            genreNode->next = NULL;
-            strcpy(genreNode->name, genre_name);
-
+            genre_t *genre = createGenre(genre_id,genre_name);
+            
             /* Insert the genre in the singly linked list for genres */
-            insertGenre(&library, genreNode);
+            insertGenre(&library, genre);
             return;
         }
         else
@@ -124,7 +114,7 @@ void processEvent(char *data)
                 printf("IGNORED\n");
                 return;
             }
-            
+
             // Initialize book
             bookNode->bid = book_ID;
             bookNode->gid = genre_ID;
@@ -135,10 +125,10 @@ void processEvent(char *data)
             bookNode->avg = 0;
             bookNode->sum_scores = 0;
             strcpy(bookNode->title, book_title);
-            
+
             genre_t *genre = library.genres;
             int found = 0;
-            
+
             while (genre != NULL)
             {
                 if (genre->gid == bookNode->gid)
@@ -149,7 +139,7 @@ void processEvent(char *data)
                 }
                 genre = genre->next;
             }
-            
+
             if (!found)
             {
                 free(bookNode);
@@ -165,7 +155,18 @@ void processEvent(char *data)
     {
         int sid;
         char name[NAME_MAX];
-
+        /* %[^\"] reads all chars until closing quotation character (Book title) "*/
+        if (sscanf(data, "M %d \"%[^\"]\"", &sid, name) == 2)
+        {
+            member_t *memberNode = (member_t *)malloc(sizeof(member_t));
+            memberNode->sid = sid;
+            strcpy(memberNode->name, name);
+            printf("Member Name: %s\nMember ID: %d\n", memberNode->name, memberNode->sid);
+        }
+        else
+        {
+            printf("Failure to read M event\n");
+        }
     }
     else if (strncmp(data, "L ", 2) == 0)
     {
@@ -202,7 +203,22 @@ void setSlots(int slots)
     SLOTS = slots;
     printf("DONE\n");
 }
+/* Helper Function to create Genre Node */
+genre_t *createGenre(int gid, char name[NAME_MAX])
+{
+    genre_t *genre = (genre_t *)malloc(sizeof(genre_t));
+    if (genre == NULL)
+    {
+        printf("Failure to allocate genre memory\n");
+        printf("IGNORED\n");
+    }
 
+    genre->gid = gid;
+    genre->books = NULL;
+    genre->next = NULL;
+    strcpy(genre->name, name);
+    return genre;
+}
 /*
     Function to insert Genre based on its ID, this will keep the Genre List sorted.
     Function runs on G event.
@@ -324,4 +340,8 @@ void insertBook(genre_t *genre, book_t *bookNode)
     }
 
     printf("DONE\n");
+}
+
+void insertMember(library_t *library, member_t *member)
+{
 }
