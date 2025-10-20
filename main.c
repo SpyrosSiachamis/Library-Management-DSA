@@ -114,50 +114,37 @@ void processEvent(char *data)
                 printf("IGNORED\n");
                 return;
             }
+            
+            // Initialize book
             bookNode->bid = book_ID;
             bookNode->gid = genre_ID;
+            bookNode->next = NULL;
             bookNode->prev = NULL;
-            bookNode->lost_flag=0;
-            bookNode->n_reviews=0;
+            bookNode->lost_flag = 0;
+            bookNode->n_reviews = 0;
             bookNode->avg = 0;
-            bookNode->sum_scores= 0;
+            bookNode->sum_scores = 0;
             strcpy(bookNode->title, book_title);
-            printf("%d %d %s\n", bookNode->gid, bookNode->bid, bookNode->title);
-            genre_t *tmp = library.genres;
-            // if (tmp == NULL)
-            // {
-            //     printf("GENRE IN BOOK IGNORED\n");
-            //     return;
-            // }
-            /*
-                Check if head of books list has the same gid as the book
-                previously this error caused a segfault.
-            */
-                if (tmp->gid == bookNode->gid)
+            
+            genre_t *genre = library.genres;
+            int found = 0;
+            
+            while (genre != NULL)
+            {
+                if (genre->gid == bookNode->gid)
                 {
-                    insertBook(tmp, bookNode);
-                    return;
+                    found = 1;
+                    insertBook(genre, bookNode);
+                    break;
                 }
-            /*
-                Check if rest of doubly linked list has gid
-            */
-            // while (tmp != NULL && tmp->gid != bookNode->gid)
-            // {
-            //     printf("%d %d %s\n", bookNode->gid, bookNode->bid, bookNode->title);
-            //     printf("%s %d\n", tmp->name, tmp->gid);
-            //     if (tmp->gid == bookNode->gid)
-            //     {
-            //         insertBook(tmp, bookNode);
-            //         printf("%d\n", tmp->gid);
-            //         return;
-            //     }
-            //     else
-            //     {
-            //         printf(" BOOK IGNORED\n");
-            //         return;
-            //     }
-            //     tmp = tmp->next;
-            // }
+                genre = genre->next;
+            }
+            
+            if (!found)
+            {
+                free(bookNode);
+                printf("IGNORED\n");
+            }
         }
     }
     else if (strncmp(data, "M ", 2) == 0)
