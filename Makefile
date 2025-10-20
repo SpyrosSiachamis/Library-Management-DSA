@@ -1,15 +1,19 @@
 CC = gcc
-all: main.o main
+CFLAGS = -g
 
-run1: main test1
-	@./main test1
+all: main
 
-run2: main test2
-	@./main test2
 main: main.o
-	@$(CC) main.o -o main
+	$(CC) $(CFLAGS) main.o -o main
 
 main.o: main.c Library.h
-	@$(CC) -c main.c
+	$(CC) $(CFLAGS) -c main.c
+
+run1: main test1
+	./main test1
+
+run2: main test2
+	./main test2
+
 clean:
-	@rm -f *.o *.out
+	rm -f *.o main *.out
