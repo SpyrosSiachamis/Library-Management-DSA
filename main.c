@@ -41,17 +41,14 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
-    /* Genre printing test */
-    genre_t *g = library.genres;
-    while (g != NULL)
-    {
-        if (g->gid == 10)
-        {
-            printf("Head: %s\n",g->books->title);
-            break;
-        }
-        g= g->next;
-    }
+    // /* Genre printing test */
+    // genre_t *g = library.genres;
+    // if (g->books == NULL)
+    // {
+    //     printf("EDW VLAKA\n");
+    // }
+    
+    // printf("Head: %s\n",g->books->title);
     return 0;
 }
 
@@ -127,21 +124,21 @@ void processEvent(char *data)
             strcpy(bookNode->title, book_title);
             printf("%d %d %s\n", bookNode->gid, bookNode->bid, bookNode->title);
             genre_t *tmp = library.genres;
-            if (tmp == NULL)
-            {
-                printf("GENRE IN BOOK IGNORED\n");
-                return;
-            }
+            // if (tmp == NULL)
+            // {
+            //     printf("GENRE IN BOOK IGNORED\n");
+            //     return;
+            // }
             /*
                 Check if head of books list has the same gid as the book
                 previously this error caused a segfault.
             */
-            // if (tmp->gid == bookNode->gid)
-            // {
-            //     insertBook(tmp, bookNode);
-            //     return;
-            // }
-            /* 
+                if (tmp->gid == bookNode->gid)
+                {
+                    insertBook(tmp, bookNode);
+                    return;
+                }
+            /*
                 Check if rest of doubly linked list has gid
             */
             // while (tmp != NULL && tmp->gid != bookNode->gid)
@@ -259,7 +256,7 @@ void insertGenre(library_t *library, genre_t *genreNode)
 */
 void insertBook(genre_t *genre, book_t *book)
 {
-    book_t *tmp;
+    book_t *tmp = book;
     if (tmp == NULL)
     {
         genre->books = book;
