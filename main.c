@@ -241,14 +241,71 @@ void insertGenre(library_t *library, genre_t *genreNode)
     If rating is equal, sorting is based on bid
     Function runs on BK event.
 */
-void insertBook(genre_t *genre, book_t *book)
+void insertBook(genre_t *genre, book_t *bookNode)
 {
-    book_t *tmp = book;
-    if (tmp == NULL)
+    /* Check for duplicate bid */
+    book_t *tmp = genre->books;
+    while (tmp != NULL)
     {
-        genre->books = book;
-        book->next = NULL;
+        if (tmp->bid == bookNode->bid)
+        {
+            free(bookNode);
+            printf("IGNORED\n");
+            return;
+        }
+        tmp = tmp->next;
+    }
+
+    /* Insert at head */
+    if (genre->books == NULL)
+    {
+        genre->books = bookNode;
+        bookNode->next = NULL;
+        bookNode->prev = NULL;
         printf("DONE\n");
         return;
     }
+
+    /* Insert in sorted position */
+    book_t *current = genre->books;
+    book_t *prev = NULL;
+
+    /* Find insertion point */
+    while (current != NULL)
+    {
+        /* Higher avg */
+        if (bookNode->avg > current->avg)
+        {
+            break;
+        }
+        /* Same avg, lower bid first */
+        if (bookNode->avg == current->avg && bookNode->bid < current->bid)
+        {
+            break;
+        }
+        prev = current;
+        current = current->next;
+    }
+
+    /* Insert at head */
+    if (prev == NULL)
+    {
+        bookNode->next = genre->books;
+        bookNode->prev = NULL;
+        genre->books->prev = bookNode;
+        genre->books = bookNode;
+    }
+    /* Insert in middle or at end */
+    else
+    {
+        bookNode->next = current;
+        bookNode->prev = prev;
+        prev->next = bookNode;
+        if (current != NULL)
+        {
+            current->prev = bookNode;
+        }
+    }
+
+    printf("DONE\n");
 }
