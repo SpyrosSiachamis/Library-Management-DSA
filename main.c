@@ -11,7 +11,7 @@ library_t library;
 void setSlots(int slots);
 void processEvent(char *data);
 void insertGenre(library_t *library, genre_t *genreNode);
-void insertBook(library_t *library, book_t book);
+void insertBook(genre_t *genre, book_t *book);
 
 int main(int argc, char *argv[])
 {
@@ -41,13 +41,17 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
-    // /* Genre printing test */
-    // genre_t *tmp = library.genres;
-    // while (tmp != NULL)
-    // {
-    //     printf("Genre Name: %s | Genre ID: %d\n", tmp->name, tmp->gid);
-    //     tmp = tmp->next;
-    // }
+    /* Genre printing test */
+    genre_t *g = library.genres;
+    while (g != NULL)
+    {
+        if (g->gid == 10)
+        {
+            printf("Head: %s\n",g->books->title);
+            break;
+        }
+        g= g->next;
+    }
     return 0;
 }
 
@@ -84,19 +88,17 @@ void processEvent(char *data)
             {
                 printf("Failure to allocate genre memory\n");
                 printf("IGNORED\n");
+                return;
             }
-            else
-            {
-                /* Initialize Genre Node*/
+            /* Initialize Genre Node*/
 
-                genreNode->gid = genre_id;
-                genreNode->books = NULL;
-                genreNode->next = NULL;
-                strcpy(genreNode->name, genre_name);
+            genreNode->gid = genre_id;
+            genreNode->books = NULL;
+            genreNode->next = NULL;
+            strcpy(genreNode->name, genre_name);
 
-                /* Insert the genre in the singly linked list for genres */
-                insertGenre(&library, genreNode);
-            }
+            /* Insert the genre in the singly linked list for genres */
+            insertGenre(&library, genreNode);
         }
     }
 
@@ -106,21 +108,60 @@ void processEvent(char *data)
         int genre_ID;
         char book_title[TITLE_MAX];
         /* %[^\"] reads all chars until closing quotation character (Book title) "*/
-        if (sscanf(data, "BK %d %d \"%[^\"]\"", &book_ID, &genre_ID, &book_title) == 3)
+        if (sscanf(data, "BK %d %d \"%[^\"]\"", &book_ID, &genre_ID, book_title) == 3)
         {
-            book_t *bookNode = (book_t*)malloc(sizeof(book_t));
+            book_t *bookNode = (book_t *)malloc(sizeof(book_t));
             if (bookNode == NULL)
             {
                 printf("Failure to allocate book memory\n");
                 printf("IGNORED\n");
+                return;
             }
             bookNode->bid = book_ID;
             bookNode->gid = genre_ID;
+            bookNode->prev = NULL;
+            bookNode->lost_flag=0;
+            bookNode->n_reviews=0;
+            bookNode->avg = 0;
+            bookNode->sum_scores= 0;
             strcpy(bookNode->title, book_title);
-            /* Test printf to assure data parsed correctly */
-            printf("Book Title: %s\nBook gid: %d\nBook bid: %d\n",bookNode->title, bookNode->gid, bookNode->bid);
+            printf("%d %d %s\n", bookNode->gid, bookNode->bid, bookNode->title);
+            genre_t *tmp = library.genres;
+            if (tmp == NULL)
+            {
+                printf("GENRE IN BOOK IGNORED\n");
+                return;
+            }
+            /*
+                Check if head of books list has the same gid as the book
+                previously this error caused a segfault.
+            */
+            // if (tmp->gid == bookNode->gid)
+            // {
+            //     insertBook(tmp, bookNode);
+            //     return;
+            // }
+            /* 
+                Check if rest of doubly linked list has gid
+            */
+            // while (tmp != NULL && tmp->gid != bookNode->gid)
+            // {
+            //     printf("%d %d %s\n", bookNode->gid, bookNode->bid, bookNode->title);
+            //     printf("%s %d\n", tmp->name, tmp->gid);
+            //     if (tmp->gid == bookNode->gid)
+            //     {
+            //         insertBook(tmp, bookNode);
+            //         printf("%d\n", tmp->gid);
+            //         return;
+            //     }
+            //     else
+            //     {
+            //         printf(" BOOK IGNORED\n");
+            //         return;
+            //     }
+            //     tmp = tmp->next;
+            // }
         }
-
     }
     else if (strncmp(data, "M ", 2) == 0)
     {
@@ -162,7 +203,7 @@ void setSlots(int slots)
     printf("DONE\n");
 }
 
-/*  
+/*
     Function to insert Genre based on its ID, this will keep the Genre List sorted.
     Function runs on G event.
 */
@@ -210,13 +251,20 @@ void insertGenre(library_t *library, genre_t *genreNode)
     printf("DONE\n");
 }
 
-/*  
+/*
     Function to insert Book based on its ID, this will keep the Book doubly linked List.
     The insertion is sorted based on the avg rating (highest to lowest).
     If rating is equal, sorting is based on bid
     Function runs on BK event.
 */
-void insertBook(library_t *library, book_t book)
+void insertBook(genre_t *genre, book_t *book)
 {
-
+    book_t *tmp;
+    if (tmp == NULL)
+    {
+        genre->books = book;
+        book->next = NULL;
+        printf("DONE\n");
+        return;
+    }
 }
