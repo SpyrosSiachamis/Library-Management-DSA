@@ -41,14 +41,18 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
-    // /* Genre printing test */
-    // genre_t *g = library.genres;
-    // if (g->books == NULL)
-    // {
-    //     printf("EDW VLAKA\n");
-    // }
-    
-    // printf("Head: %s\n",g->books->title);
+    /* Genre printing test */
+    genre_t *g = library.genres;
+    if (g->books == NULL)
+    {
+        printf("EDW VLAKA\n");
+    }
+    book_t *tmp = g->books;
+    while (tmp!=NULL)
+    {
+        printf("Book: %s\n",tmp->title);
+        tmp = tmp->next;
+    }
     return 0;
 }
 
@@ -96,6 +100,12 @@ void processEvent(char *data)
 
             /* Insert the genre in the singly linked list for genres */
             insertGenre(&library, genreNode);
+            return;
+        }
+        else
+        {
+            printf("Failure to read G event\n");
+            return;
         }
     }
 
@@ -146,10 +156,16 @@ void processEvent(char *data)
                 printf("IGNORED\n");
             }
         }
+        else
+        {
+            printf("Failure to read BK event\n");
+        }
     }
     else if (strncmp(data, "M ", 2) == 0)
     {
-        // Handle M command
+        int sid;
+        char name[NAME_MAX];
+
     }
     else if (strncmp(data, "L ", 2) == 0)
     {
