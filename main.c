@@ -441,6 +441,11 @@ void insertMember(library_t *library, member_t *member)
     printf("DONE\n");
 }
 
+/*
+    Function to check if book list is sorted in a genre.
+    prints every book's bid next to it's avg review score.
+    Function runs on PG event.
+*/
 void printGenre(library_t *library, int gid)
 {
     genre_t *tmp = library->genres;
