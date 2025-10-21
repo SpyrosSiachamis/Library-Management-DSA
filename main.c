@@ -385,6 +385,12 @@ void insertBook(genre_t *genre, book_t *bookNode)
     printf("DONE\n");
 }
 
+/*
+    Function to insert Member based on its ID into the member list.
+    The insertion maintains the member list structure.
+    The insertion is sorted based on mid (lowest to highest).
+    Function runs on M event.
+*/
 void insertMember(library_t *library, member_t *member)
 {
     member_t *current = library->members;
