@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
     /* Print all members */
     printf("\n=== MEMBERS LIST ===\n");
     member_t *m = library.members;
-    
+
     if (m == NULL)
     {
         printf("No members in library.\n");
@@ -186,7 +186,7 @@ void processEvent(char *data)
         int gid;
         if (sscanf(data, "PG %d", &gid) == 1)
         {
-            printGenre(&library,gid);
+            printGenre(&library, gid);
             return;
         }
     }
@@ -311,6 +311,17 @@ member_t *createMember(int sid, char name[NAME_MAX])
         printf("IGNORED\n");
         return NULL;
     }
+    loan_t *loanSentinel = (loan_t *)malloc(sizeof(loan_t));
+    if (loanSentinel == NULL)
+    {
+        printf("IGNORED\n");
+        free(memberNode);
+        return NULL;
+    }
+    loanSentinel->next = NULL;
+    loanSentinel->sid = -1;
+    loanSentinel->bid = -1;
+    memberNode->loans = loanSentinel;
     memberNode->sid = sid;
     strcpy(memberNode->name, name);
     return memberNode;
@@ -471,9 +482,9 @@ void printGenre(library_t *library, int gid)
         }
         return;
     }
-    while (tmp != NULL && tmp->gid!=gid)
+    while (tmp != NULL && tmp->gid != gid)
     {
-        tmp= tmp->next;
+        tmp = tmp->next;
     }
     if (tmp != NULL)
     {
