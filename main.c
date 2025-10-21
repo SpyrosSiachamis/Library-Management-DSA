@@ -15,6 +15,7 @@ void insertBook(genre_t *genre, book_t *book);
 void insertMember(library_t *library, member_t *member);
 book_t *createBook(int gid, int bid, char title[NAME_MAX]);
 genre_t *createGenre(int gid, char name[NAME_MAX]);
+member_t *createMember(int sid, char name[NAME_MAX]);
 
 int main(int argc, char *argv[])
 {
@@ -44,18 +45,23 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
-    /* Genre printing test */
-    genre_t *g = library.genres;
-    if (g->books == NULL)
+    /* Print all members */
+    printf("\n=== MEMBERS LIST ===\n");
+    member_t *m = library.members;
+    
+    if (m == NULL)
     {
-        printf("EDW VLAKA\n");
+        printf("No members in library.\n");
     }
-    book_t *tmp = g->books;
-    while (tmp != NULL)
+    else
     {
-        printf("Book: %s\n", tmp->title);
-        tmp = tmp->next;
+        while (m != NULL)
+        {
+            printf("Member %d: %s\n", m->sid, m->name);
+            m = m->next;
+        }
     }
+    printf("=== END MEMBERS ===\n\n");
     return 0;
 }
 
@@ -89,6 +95,11 @@ void processEvent(char *data)
         {
             /* Initialize Genre Node*/
             genre_t *genre = createGenre(genre_id, genre_name);
+            if (genre == NULL)
+            {
+                printf("IGNORED\n");
+                return;
+            }
 
             /* Insert the genre in the singly linked list for genres */
             insertGenre(&library, genre);
@@ -109,7 +120,13 @@ void processEvent(char *data)
         /* %[^\"] reads all chars until closing quotation character (Book title) "*/
         if (sscanf(data, "BK %d %d \"%[^\"]\"", &book_ID, &genre_ID, book_title) == 3)
         {
-            book_t *bookNode = createBook(genre_ID,book_ID,book_title);
+            book_t *bookNode = createBook(genre_ID, book_ID, book_title);
+            if (bookNode == NULL)
+            {
+                printf("IGNORED\n");
+                return;
+            }
+
             genre_t *genre = library.genres;
             int found = 0;
 
@@ -142,10 +159,13 @@ void processEvent(char *data)
         /* %[^\"] reads all chars until closing quotation character (Book title) "*/
         if (sscanf(data, "M %d \"%[^\"]\"", &sid, name) == 2)
         {
-            member_t *memberNode = (member_t *)malloc(sizeof(member_t));
-            memberNode->sid = sid;
-            strcpy(memberNode->name, name);
-            printf("Member Name: %s\nMember ID: %d\n", memberNode->name, memberNode->sid);
+            member_t *memberNode = createMember(sid, name);
+            if (memberNode == NULL)
+            {
+                printf("IGNORED\n");
+                return;
+            }
+            insertMember(&library, memberNode);
         }
         else
         {
@@ -276,6 +296,20 @@ book_t *createBook(int gid, int bid, char title[NAME_MAX])
     return book;
 }
 
+/* Helper Function to create Member Node */
+member_t *createMember(int sid, char name[NAME_MAX])
+{
+    member_t *memberNode = (member_t *)malloc(sizeof(member_t));
+    if (memberNode == NULL)
+    {
+        printf("IGNORED\n");
+        return NULL;
+    }
+    memberNode->sid = sid;
+    strcpy(memberNode->name, name);
+    return memberNode;
+}
+
 /*
     Function to insert Book based on its ID, this will keep the Book doubly linked List.
     The insertion is sorted based on the avg rating (highest to lowest).
@@ -297,7 +331,7 @@ void insertBook(genre_t *genre, book_t *bookNode)
         tmp = tmp->next;
     }
 
-    /* Insert at head */
+    /* Insert at head if books == NULL */
     if (genre->books == NULL)
     {
         genre->books = bookNode;
@@ -353,4 +387,44 @@ void insertBook(genre_t *genre, book_t *bookNode)
 
 void insertMember(library_t *library, member_t *member)
 {
+    member_t *current = library->members;
+    member_t *prev = NULL;
+    /* If the member list is empty, make the new Member it's head. */
+    if (library->members == NULL)
+    {
+        library->members = member;
+        printf("DONE\n");
+        return;
+    }
+    /* If list is not NULL and member sid < head sid, make genreNode head of the list */
+    if (member->sid < current->sid)
+    {
+        member->next = current;
+        library->members = member;
+        printf("DONE\n");
+        return;
+    }
+
+    /* Traverse until second to last node to check for duplicates*/
+    while (current != NULL && current->sid < member->sid)
+    {
+        prev = current;
+        current = current->next;
+    }
+
+    /* Check last member node to ensure no duplicates*/
+    if (current != NULL && current->sid == member->sid || (prev != NULL && prev->sid == member->sid))
+    {
+        free(member);
+        printf("IGNORED\n");
+        return;
+    }
+
+    /* If no duplicate gid is found, insert the member to the singly linked list*/
+    member->next = current;
+    if (prev != NULL)
+    {
+        prev->next = member;
+    }
+    printf("DONE\n");
 }
