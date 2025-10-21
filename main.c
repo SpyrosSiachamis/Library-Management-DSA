@@ -13,6 +13,7 @@ void processEvent(char *data);
 void insertGenre(library_t *library, genre_t *genreNode);
 void insertBook(genre_t *genre, book_t *book);
 void insertMember(library_t *library, member_t *member);
+void printGenre(library_t *library, int gid);
 book_t *createBook(int gid, int bid, char title[NAME_MAX]);
 genre_t *createGenre(int gid, char name[NAME_MAX]);
 member_t *createMember(int sid, char name[NAME_MAX]);
@@ -182,7 +183,12 @@ void processEvent(char *data)
     }
     else if (strncmp(data, "PG ", 3) == 0)
     {
-        // Handle PG command
+        int gid;
+        if (sscanf(data, "PG %d", &gid) == 1)
+        {
+            printGenre(&library,gid);
+            return;
+        }
     }
     else if (strncmp(data, "D ", 2) == 0)
     {
@@ -433,4 +439,47 @@ void insertMember(library_t *library, member_t *member)
         prev->next = member;
     }
     printf("DONE\n");
+}
+
+void printGenre(library_t *library, int gid)
+{
+    genre_t *tmp = library->genres;
+    book_t *bTmp;
+    if (tmp == NULL)
+    {
+        printf("IGNORED\n");
+        return;
+    }
+
+    if (tmp->gid == gid)
+    {
+        bTmp = tmp->books;
+        if (bTmp == NULL)
+        {
+            printf("IGNORED\n");
+            return;
+        }
+        while (bTmp != NULL)
+        {
+            printf("%d %d\n", bTmp->bid, bTmp->avg);
+            bTmp = bTmp->next;
+        }
+        return;
+    }
+    while (tmp != NULL && tmp->gid!=gid)
+    {
+        tmp= tmp->next;
+    }
+    if (tmp != NULL)
+    {
+        bTmp = tmp->books;
+        while (bTmp != NULL)
+        {
+            printf("%d %d\n", bTmp->bid, bTmp->avg);
+            bTmp = bTmp->next;
+        }
+        return;
+    }
+    printf("IGNORED\n");
+    return;
 }
