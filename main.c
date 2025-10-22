@@ -14,9 +14,21 @@ void insertGenre(library_t *library, genre_t *genreNode);
 void insertBook(genre_t *genre, book_t *book);
 void insertMember(library_t *library, member_t *member);
 void printGenre(library_t *library, int gid);
+void insertLoan(member_t *member, loan_t *loan);
 book_t *createBook(int gid, int bid, char title[NAME_MAX]);
 genre_t *createGenre(int gid, char name[NAME_MAX]);
 member_t *createMember(int sid, char name[NAME_MAX]);
+loan_t *createLoan(int sid, int bid);
+loan_t *createSentinelNode(int sid);
+
+/*
+    ----------------------- SOS -----------------------------
+    Add an int return to the process event function to assure successfull event,
+    if everything in the interior functions were successful, something could go 
+    wrong in the handler after everything is successful. So before I print done I
+    should check if the process event handler worked correctly. 
+*/
+
 
 int main(int argc, char *argv[])
 {
@@ -46,8 +58,8 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
-    /* Print all members */
-    printf("\n=== MEMBERS LIST ===\n");
+    /* Print all members and their loans */
+    printf("\n=== MEMBERS AND LOANS ===\n");
     member_t *m = library.members;
 
     if (m == NULL)
@@ -59,10 +71,28 @@ int main(int argc, char *argv[])
         while (m != NULL)
         {
             printf("Member %d: %s\n", m->sid, m->name);
+            
+            /* Print loans for this member */
+            loan_t *l = m->loans;
+            if (l == NULL)
+            {
+                printf("  No loans\n");
+            }
+            else
+            {
+                printf("  Loans: ");
+                while (l != NULL && l->bid != -1)  // Stop at sentinel node
+                {
+                    printf("%d ", l->bid);
+                    l = l->next;
+                }
+                printf("\n");
+            }
+            
             m = m->next;
         }
     }
-    printf("=== END MEMBERS ===\n\n");
+    printf("=== END MEMBERS AND LOANS ===\n\n");
     return 0;
 }
 
@@ -98,7 +128,7 @@ void processEvent(char *data)
             genre_t *genre = createGenre(genre_id, genre_name);
             if (genre == NULL)
             {
-                printf("IGNORED\n");
+                printf("G IGNORED\n");
                 return;
             }
 
@@ -124,7 +154,7 @@ void processEvent(char *data)
             book_t *bookNode = createBook(genre_ID, book_ID, book_title);
             if (bookNode == NULL)
             {
-                printf("IGNORED\n");
+                printf("BK IGNORED\n");
                 return;
             }
 
@@ -145,7 +175,7 @@ void processEvent(char *data)
             if (!found)
             {
                 free(bookNode);
-                printf("IGNORED\n");
+                printf("BK IGNORED\n");
             }
         }
         else
@@ -163,7 +193,7 @@ void processEvent(char *data)
             member_t *memberNode = createMember(sid, name);
             if (memberNode == NULL)
             {
-                printf("IGNORED\n");
+                printf("M IGNORED\n");
                 return;
             }
             insertMember(&library, memberNode);
@@ -175,7 +205,33 @@ void processEvent(char *data)
     }
     else if (strncmp(data, "L ", 2) == 0)
     {
-        // Handle L command
+        int sid;
+        int bid;
+        if (sscanf(data, "L %d %d", &sid, &bid) == 2)
+        {
+            loan_t *loan = createLoan(sid,bid);
+            if (loan == NULL)
+            {
+                printf("L IGNORED\n");
+                return;
+            }
+            member_t *current = library.members;
+            while (current != NULL && current->sid != loan->sid)
+            {
+                current = current->next;
+            }
+            if (current->sid == loan->sid && current != NULL)
+            {
+                insertLoan(current,loan);
+                return;
+            }
+            printf("L IGNORED\n");
+            free(loan);
+        }
+        else
+        {
+            printf("L IGNORED\n");
+        }
     }
     else if (strncmp(data, "R ", 2) == 0)
     {
@@ -211,7 +267,7 @@ void processEvent(char *data)
 void setSlots(int slots)
 {
     SLOTS = slots;
-    printf("DONE\n");
+    printf("S DONE\n");
 }
 /* Helper Function to create Genre Node */
 genre_t *createGenre(int gid, char name[NAME_MAX])
@@ -220,7 +276,7 @@ genre_t *createGenre(int gid, char name[NAME_MAX])
     if (genre == NULL)
     {
         printf("Failure to allocate genre memory\n");
-        printf("IGNORED\n");
+        printf("G IGNORED\n");
         return NULL;
     }
 
@@ -242,7 +298,7 @@ void insertGenre(library_t *library, genre_t *genreNode)
     if (library->genres == NULL)
     {
         library->genres = genreNode;
-        printf("DONE\n");
+        printf("G DONE\n");
         return;
     }
     /* If list is not NULL and genreNode gid < head gid, make genreNode head of the list */
@@ -250,7 +306,7 @@ void insertGenre(library_t *library, genre_t *genreNode)
     {
         genreNode->next = tmp;
         library->genres = genreNode;
-        printf("DONE\n");
+        printf("G DONE\n");
         return;
     }
 
@@ -265,7 +321,7 @@ void insertGenre(library_t *library, genre_t *genreNode)
     if (tmp != NULL && tmp->gid == genreNode->gid || (prev != NULL && prev->gid == genreNode->gid))
     {
         free(genreNode);
-        printf("IGNORED\n");
+        printf("G IGNORED\n");
         return;
     }
 
@@ -275,7 +331,7 @@ void insertGenre(library_t *library, genre_t *genreNode)
     {
         prev->next = genreNode;
     }
-    printf("DONE\n");
+    printf("G DONE\n");
 }
 
 /* Helper Function to create Book Node */
@@ -285,7 +341,7 @@ book_t *createBook(int gid, int bid, char title[NAME_MAX])
     if (book == NULL)
     {
         printf("Failure to allocate book memory\n");
-        printf("IGNORED\n");
+        printf("BK IGNORED\n");
         return NULL;
     }
 
@@ -308,23 +364,40 @@ member_t *createMember(int sid, char name[NAME_MAX])
     member_t *memberNode = (member_t *)malloc(sizeof(member_t));
     if (memberNode == NULL)
     {
-        printf("IGNORED\n");
+        printf("M IGNORED\n");
         return NULL;
     }
-    loan_t *loanSentinel = (loan_t *)malloc(sizeof(loan_t));
-    if (loanSentinel == NULL)
-    {
-        printf("IGNORED\n");
-        free(memberNode);
-        return NULL;
-    }
-    loanSentinel->next = NULL;
-    loanSentinel->sid = -1;
-    loanSentinel->bid = -1;
-    memberNode->loans = loanSentinel;
+    memberNode->loans = NULL;
     memberNode->sid = sid;
     strcpy(memberNode->name, name);
     return memberNode;
+}
+
+loan_t *createLoan(int sid, int bid)
+{
+    loan_t *loan = (loan_t*)malloc(sizeof(loan_t));
+    if (loan == NULL)
+    {
+        printf("L IGNORED\n");
+        return NULL;
+    }
+    loan->sid = sid;
+    loan->bid = bid;
+    return loan;
+}
+
+loan_t *createSentinelNode(int sid)
+{
+    loan_t *sentinel = (loan_t*)malloc(sizeof(loan_t));
+    if (sentinel == NULL)
+    {
+        printf("L IGNORED\n");
+        return NULL;
+    }
+    sentinel->next = NULL;
+    sentinel->bid = -1;
+    sentinel->sid = sid;
+    return sentinel;
 }
 
 /*
@@ -342,7 +415,7 @@ void insertBook(genre_t *genre, book_t *bookNode)
         if (tmp->bid == bookNode->bid)
         {
             free(bookNode);
-            printf("IGNORED\n");
+            printf("BK IGNORED\n");
             return;
         }
         tmp = tmp->next;
@@ -354,7 +427,7 @@ void insertBook(genre_t *genre, book_t *bookNode)
         genre->books = bookNode;
         bookNode->next = NULL;
         bookNode->prev = NULL;
-        printf("DONE\n");
+        printf("BK DONE\n");
         return;
     }
 
@@ -399,7 +472,7 @@ void insertBook(genre_t *genre, book_t *bookNode)
         }
     }
 
-    printf("DONE\n");
+    printf("BK DONE\n");
 }
 
 /*
@@ -416,7 +489,7 @@ void insertMember(library_t *library, member_t *member)
     if (library->members == NULL)
     {
         library->members = member;
-        printf("DONE\n");
+        printf("M DONE\n");
         return;
     }
     /* If list is not NULL and member sid < head sid, make genreNode head of the list */
@@ -424,7 +497,7 @@ void insertMember(library_t *library, member_t *member)
     {
         member->next = current;
         library->members = member;
-        printf("DONE\n");
+        printf("M DONE\n");
         return;
     }
 
@@ -439,7 +512,7 @@ void insertMember(library_t *library, member_t *member)
     if (current != NULL && current->sid == member->sid || (prev != NULL && prev->sid == member->sid))
     {
         free(member);
-        printf("IGNORED\n");
+        printf("M IGNORED\n");
         return;
     }
 
@@ -449,7 +522,47 @@ void insertMember(library_t *library, member_t *member)
     {
         prev->next = member;
     }
-    printf("DONE\n");
+    printf("M DONE\n");
+}
+
+
+/*
+    REMINDER: CHECK IF BOOK EXISTS IN ANY GENRE
+*/
+void insertLoan(member_t *member, loan_t *loan)
+{
+    /* If loans list is empty, create sentinel node for tail of loan then put it as the next pointer of the head loan node that is being added and then make the new loan as the HEAD of the list. */
+    if (member->loans == NULL)
+    {
+        loan_t *sentinel = createSentinelNode(member->sid);
+        if (sentinel == NULL)
+        {
+            printf("L IGNORED\n");
+            free(loan);
+            return;
+        }
+        loan->next = sentinel;
+        member->loans = loan;
+        printf("L DONE\n");
+        return;
+    }
+    loan_t *current = member->loans;
+
+    /* Traverse list until sentinel node OR until duplicate loan */
+    while (current->next->bid != -1 && current->bid != loan->bid)
+    {
+        current = current->next;
+    }
+    if (current->bid == loan->bid)
+    {
+        printf("L IGNORED\n");
+        free(loan);
+        return;
+    }
+    /* If duplicate loan hasnt been found, create new loan */
+    loan->next = current->next;
+    current->next = loan;
+    printf("L DONE\n");
 }
 
 /*
@@ -463,7 +576,7 @@ void printGenre(library_t *library, int gid)
     book_t *bTmp;
     if (tmp == NULL)
     {
-        printf("IGNORED\n");
+        printf("PG IGNORED\n");
         return;
     }
 
@@ -472,7 +585,7 @@ void printGenre(library_t *library, int gid)
         bTmp = tmp->books;
         if (bTmp == NULL)
         {
-            printf("IGNORED\n");
+            printf("PG IGNORED\n");
             return;
         }
         while (bTmp != NULL)
@@ -496,6 +609,6 @@ void printGenre(library_t *library, int gid)
         }
         return;
     }
-    printf("IGNORED\n");
+    printf("PG IGNORED\n");
     return;
 }
