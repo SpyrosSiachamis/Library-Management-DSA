@@ -15,6 +15,7 @@ void insertBook(genre_t *genre, book_t *book);
 void insertMember(library_t *library, member_t *member);
 void printGenre(library_t *library, int gid);
 void insertLoan(member_t *member, loan_t *loan);
+void returnLoan(member_t *member, int bid, char score[8], int status);
 book_t *createBook(int gid, int bid, char title[NAME_MAX]);
 genre_t *createGenre(int gid, char name[NAME_MAX]);
 member_t *createMember(int sid, char name[NAME_MAX]);
@@ -24,11 +25,10 @@ loan_t *createSentinelNode(int sid);
 /*
     ----------------------- SOS -----------------------------
     Add an int return to the process event function to assure successfull event,
-    if everything in the interior functions were successful, something could go 
+    if everything in the interior functions were successful, something could go
     wrong in the handler after everything is successful. So before I print done I
-    should check if the process event handler worked correctly. 
+    should check if the process event handler worked correctly.
 */
-
 
 int main(int argc, char *argv[])
 {
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
         while (m != NULL)
         {
             printf("Member %d: %s\n", m->sid, m->name);
-            
+
             /* Print loans for this member */
             loan_t *l = m->loans;
             if (l == NULL)
@@ -81,14 +81,14 @@ int main(int argc, char *argv[])
             else
             {
                 printf("  Loans: ");
-                while (l != NULL && l->bid != -1)  // Stop at sentinel node
+                while (l != NULL && l->bid != -1) // Stop at sentinel node
                 {
                     printf("%d ", l->bid);
                     l = l->next;
                 }
                 printf("\n");
             }
-            
+
             m = m->next;
         }
     }
@@ -209,7 +209,7 @@ void processEvent(char *data)
         int bid;
         if (sscanf(data, "L %d %d", &sid, &bid) == 2)
         {
-            loan_t *loan = createLoan(sid,bid);
+            loan_t *loan = createLoan(sid, bid);
             if (loan == NULL)
             {
                 printf("L IGNORED\n");
@@ -222,7 +222,7 @@ void processEvent(char *data)
             }
             if (current->sid == loan->sid && current != NULL)
             {
-                insertLoan(current,loan);
+                insertLoan(current, loan);
                 return;
             }
             printf("L IGNORED\n");
@@ -235,7 +235,44 @@ void processEvent(char *data)
     }
     else if (strncmp(data, "R ", 2) == 0)
     {
-        // Handle R command
+        int sid;
+        int bid;
+        char score[8];
+        char status[10];
+        if (sscanf(data, "R %d %d %s %s", &sid, &bid, &score, &status) == 4)
+        {
+            /* find member by sid */
+            member_t *member = library.members;
+            while (member != NULL && member->sid != sid)
+            {
+                member = member->next;
+            }
+            if (member == NULL)
+            {
+                printf("R IGNORED\n");
+                return;
+            }
+
+            int lost_flag;
+            if (strcmp(status, "lost") == 0)
+            {
+                lost_flag = 1;
+            }
+            else if (strcmp(status, "ok") == 0)
+            {
+                lost_flag = 0;
+            }
+            else
+            {
+                printf("IGNORED\n");
+                return;
+            }
+            returnLoan(member, bid, score, lost_flag);
+        }
+        else
+        {
+            printf("R IGNORED\n");
+        }
     }
     else if (strncmp(data, "PG ", 3) == 0)
     {
@@ -243,7 +280,6 @@ void processEvent(char *data)
         if (sscanf(data, "PG %d", &gid) == 1)
         {
             printGenre(&library, gid);
-            return;
         }
     }
     else if (strncmp(data, "D ", 2) == 0)
@@ -375,7 +411,7 @@ member_t *createMember(int sid, char name[NAME_MAX])
 
 loan_t *createLoan(int sid, int bid)
 {
-    loan_t *loan = (loan_t*)malloc(sizeof(loan_t));
+    loan_t *loan = (loan_t *)malloc(sizeof(loan_t));
     if (loan == NULL)
     {
         printf("L IGNORED\n");
@@ -386,9 +422,10 @@ loan_t *createLoan(int sid, int bid)
     return loan;
 }
 
+/* Helper Function to create sentinel node for linked lists that use it */
 loan_t *createSentinelNode(int sid)
 {
-    loan_t *sentinel = (loan_t*)malloc(sizeof(loan_t));
+    loan_t *sentinel = (loan_t *)malloc(sizeof(loan_t));
     if (sentinel == NULL)
     {
         printf("L IGNORED\n");
@@ -525,7 +562,6 @@ void insertMember(library_t *library, member_t *member)
     printf("M DONE\n");
 }
 
-
 /*
     REMINDER: CHECK IF BOOK EXISTS IN ANY GENRE
 */
@@ -611,4 +647,34 @@ void printGenre(library_t *library, int gid)
     }
     printf("PG IGNORED\n");
     return;
+}
+
+void returnLoan(member_t *member, int bid, char score[8], int status)
+{
+    int sc;
+    /* Check score then convert to int */
+    if (strcmp(score, "NA") == 0)
+    {
+        sc = -1;
+    }
+    else
+    {
+        sc = atoi(score);
+        if (sc < 0 || sc > 10)
+        {
+            printf("IGNORED\n");
+            return;
+        }
+    }
+    loan_t *current = member->loans;
+    while (current->bid != -1 && current->bid != bid)
+    {
+        current = current->next;
+    }
+    if (current->bid == -1) 
+    {
+        printf("IGNORED\n");
+        return;
+    }
+    
 }
