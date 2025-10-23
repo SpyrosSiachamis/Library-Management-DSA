@@ -15,13 +15,13 @@ void insertBook(genre_t *genre, book_t *book);
 void insertMember(library_t *library, member_t *member);
 void printGenre(library_t *library, int gid);
 void insertLoan(member_t *member, loan_t *loan);
-void returnLoan(member_t *member, int bid, char score[8], int status);
+void returnLoan(member_t *member, book_t *book, char score[8], int status);
 book_t *createBook(int gid, int bid, char title[NAME_MAX]);
 genre_t *createGenre(int gid, char name[NAME_MAX]);
 member_t *createMember(int sid, char name[NAME_MAX]);
 loan_t *createLoan(int sid, int bid);
 loan_t *createSentinelNode(int sid);
-
+void sortBooks(genre_t *g);
 /*
     ----------------------- SOS -----------------------------
     Add an int return to the process event function to assure successfull event,
@@ -58,41 +58,6 @@ int main(int argc, char *argv[])
         }
         fclose(file);
     }
-    /* Print all members and their loans */
-    printf("\n=== MEMBERS AND LOANS ===\n");
-    member_t *m = library.members;
-
-    if (m == NULL)
-    {
-        printf("No members in library.\n");
-    }
-    else
-    {
-        while (m != NULL)
-        {
-            printf("Member %d: %s\n", m->sid, m->name);
-
-            /* Print loans for this member */
-            loan_t *l = m->loans;
-            if (l == NULL)
-            {
-                printf("  No loans\n");
-            }
-            else
-            {
-                printf("  Loans: ");
-                while (l != NULL && l->bid != -1) // Stop at sentinel node
-                {
-                    printf("%d ", l->bid);
-                    l = l->next;
-                }
-                printf("\n");
-            }
-
-            m = m->next;
-        }
-    }
-    printf("=== END MEMBERS AND LOANS ===\n\n");
     return 0;
 }
 
@@ -142,7 +107,6 @@ void processEvent(char *data)
             return;
         }
     }
-
     else if (strncmp(data, "BK ", 3) == 0)
     {
         int book_ID;
@@ -239,7 +203,7 @@ void processEvent(char *data)
         int bid;
         char score[8];
         char status[10];
-        if (sscanf(data, "R %d %d %s %s", &sid, &bid, &score, &status) == 4)
+        if (sscanf(data, "R %d %d %7s %9s", &sid, &bid, score, status) == 4)
         {
             /* find member by sid */
             member_t *member = library.members;
@@ -267,7 +231,30 @@ void processEvent(char *data)
                 printf("IGNORED\n");
                 return;
             }
-            returnLoan(member, bid, score, lost_flag);
+            genre_t *g_curr = library.genres;
+            book_t *book_curr;
+            int found_book = 0;
+            while (g_curr != NULL && !found_book)
+            {
+                book_curr = g_curr->books;
+                while (book_curr != NULL)
+                {
+                    if (book_curr->bid == bid)
+                    {
+                        returnLoan(member, book_curr, score, lost_flag);
+                        found_book = 1;
+                        break;
+                    }
+                    book_curr = book_curr->next;
+                }
+                g_curr = g_curr->next;
+            }
+            if (!found_book)
+            {
+                printf("R IGNORED\n");
+                return;
+            }
+            sortBooks(g_curr);
         }
         else
         {
@@ -546,7 +533,9 @@ void insertMember(library_t *library, member_t *member)
     }
 
     /* Check last member node to ensure no duplicates*/
-    if (current != NULL && current->sid == member->sid || (prev != NULL && prev->sid == member->sid))
+    while (current &&
+           (book->avg < current->avg ||
+            (book->avg == current->avg && book->bid > current->bid)))
     {
         free(member);
         printf("M IGNORED\n");
@@ -649,7 +638,7 @@ void printGenre(library_t *library, int gid)
     return;
 }
 
-void returnLoan(member_t *member, int bid, char score[8], int status)
+void returnLoan(member_t *member, book_t *book, char score[8], int status)
 {
     int sc;
     /* Check score then convert to int */
@@ -662,19 +651,108 @@ void returnLoan(member_t *member, int bid, char score[8], int status)
         sc = atoi(score);
         if (sc < 0 || sc > 10)
         {
-            printf("IGNORED\n");
+            printf("R IGNORED\n");
             return;
         }
     }
-    loan_t *current = member->loans;
-    while (current->bid != -1 && current->bid != bid)
+
+    loan_t *curr = member->loans;
+    loan_t *prev = NULL;
+
+    /* If list empty or only sentinel */
+    if (curr == NULL || curr->bid == -1)
     {
-        current = current->next;
-    }
-    if (current->bid == -1) 
-    {
-        printf("IGNORED\n");
+        printf("R IGNORED\n");
         return;
     }
-    
+
+    /* Traverse until matching bid or reach sentinel */
+    while (curr->bid != -1 && curr->bid != book->bid)
+    {
+        prev = curr;
+        curr = curr->next;
+    }
+
+    /* If we reached sentinel, book not found */
+    if (curr->bid == -1)
+    {
+        printf("R IGNORED\n");
+        return;
+    }
+    /* If found, apply new score and status to book */
+    if (sc >= 0 && sc <= 10)
+    {
+        book->sum_scores += sc;
+        book->n_reviews++;
+        book->avg = (book->sum_scores / book->n_reviews); /* Calculate avg review score */
+    }
+    /* Set if book is ok or lost */
+    book->lost_flag = status;
+
+    /* delete node if found */
+    if (prev == NULL)
+    {
+        /* Node to delete is first loan */
+        member->loans = curr->next;
+    }
+    else
+    {
+        prev->next = curr->next;
+    }
+
+    free(curr);
+    printf("R DONE\n");
+}
+
+void sortBook(genre_t *g, book_t *book)
+{
+    if (g == NULL || book == NULL) return;
+
+    /* Splice out book from current list */
+    if (book->prev)
+    {
+        book->prev->next = book->next;
+    }
+    else if (g->books == book)
+    {
+        g->books = book->next;
+    }
+    if (book->next)
+    {
+        book->next->prev = book->prev;
+    }
+    /* Clear book links so insertion is clean */
+    book->prev = NULL;
+    book->next = NULL;
+
+    /* Find insertion point */
+    book_t *cur = g->books;
+    book_t *prev = NULL;
+    while (cur && (book->avg < cur->avg || (book->avg == cur->avg && book->bid > cur->bid)))
+    {
+        prev = cur;
+        cur = cur->next;
+    }
+
+    /* Splice in book at found position */
+    if (prev == NULL)
+    {
+        /* insert at head */
+        book->next = g->books;
+        if (g->books)
+            g->books->prev = book;
+        g->books = book;
+        book->prev = NULL;
+    }
+    else
+    {
+        /* insert after prev */
+        book->prev = prev;
+        book->next = cur;
+        prev->next = book;
+        if (cur)
+        {
+            cur->prev = book;
+        }
+    }
 }
