@@ -1,15 +1,15 @@
+# === Initialization ===
 S 5
 G 10 "Computer Science"
 G 20 "Mathematics"
 
-# Five books in genre 10 (last inserted = BK 105, will be highest)
+# === Books (5 in G10, 7 in G20) ===
 BK 101 10 "Data Structures"
 BK 102 10 "Operating Systems"
 BK 103 10 "Algorithms"
 BK 104 10 "Computer Networks"
 BK 105 10 "Artificial Intelligence"
 
-# Seven books in genre 20 (last inserted = BK 207, NOT the highest)
 BK 201 20 "Calculus I"
 BK 202 20 "Linear Algebra"
 BK 203 20 "Discrete Math"
@@ -18,14 +18,13 @@ BK 205 20 "Number Theory"
 BK 206 20 "Topology"
 BK 207 20 "Statistics"
 
-# Members for genre 10
+# === Members ===
 M 1001 "Maria"
 M 1002 "Nikos"
 M 1003 "Anna"
 M 1004 "Kostas"
 M 1005 "Eleni"
 
-# Members for genre 20
 M 2001 "Yiannis"
 M 2002 "Dimitra"
 M 2003 "Petros"
@@ -34,7 +33,7 @@ M 2005 "Manos"
 M 2006 "Irene"
 M 2007 "Vasilis"
 
-# Loans: one loan per book
+# === Loans (1 per book) ===
 L 1001 101
 L 1002 102
 L 1003 103
@@ -49,26 +48,32 @@ L 2005 205
 L 2006 206
 L 2007 207
 
-# Returns for genre 10 (make BK 105 highest)
+# === Returns — creates avg scores ===
+# Genre 10 (BK105 will be highest)
 R 1001 101 5 ok
 R 1002 102 6 ok
 R 1003 103 7 ok
 R 1004 104 8 ok
-R 1005 105 10 ok   # BK 105 highest
+R 1005 105 10 ok   # Highest
 
-# Returns for genre 20 (ensure last inserted BK 207 is NOT highest; BK 204 will be highest)
+# Genre 20 (BK204 highest)
 R 2001 201 6 ok
+R 2002 202 6 ok
 R 2003 203 6 ok
-R 2004 204 10 ok  # BK 204 highest
+R 2004 204 10 ok   # Highest
 R 2005 205 8 ok
 R 2006 206 7 ok
-R 2007 207 7 ok   # BK 207 not highest
+R 2007 207 7 ok
 
-# Check sorted lists (expect BK 105 first in G10; BK 204 first in G20)
+# === Check sorted lists ===
 PG 10
 PG 20
 
-# Optional: check members have no active loans
+# === Allocate and print display ===
+D
+PD
+
+# === Optional: confirm members have no active loans ===
 PM 1001
 PM 1002
 PM 1003

@@ -15,15 +15,20 @@ void insertBook(genre_t *genre, book_t *book);
 void insertMember(library_t *library, member_t *member);
 void printGenre(library_t *library, int gid);
 void insertLoan(member_t *member, loan_t *loan);
-void returnLoan(member_t *member, book_t *book, char score[8], int status);
+void returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int status);
 void printMemberLoans(member_t *member);
-
+int points(genre_t *g);
+int seats(genre_t *g, int points, int quota);
+int rem(genre_t *g, int points, int quota, int seat);
+void allocateSlots();
+void printDisplayedBooks();
 book_t *createBook(int gid, int bid, char title[NAME_MAX]);
 genre_t *createGenre(int gid, char name[NAME_MAX]);
 member_t *createMember(int sid, char name[NAME_MAX]);
 loan_t *createLoan(int sid, int bid);
 loan_t *createSentinelNode(int sid);
 void sortBook(genre_t *g, book_t *book);
+
 /*
     ----------------------- SOS -----------------------------
     Add an int return to the process event function to assure successfull event,
@@ -188,12 +193,12 @@ void processEvent(char *data)
             }
             /* check current != NULL before deref */
             if (current != NULL)
-             {
-                 insertLoan(current, loan);
-                 return;
-             }
-             printf("L IGNORED\n");
-             free(loan);
+            {
+                insertLoan(current, loan);
+                return;
+            }
+            printf("L IGNORED\n");
+            free(loan);
         }
         else
         {
@@ -236,7 +241,7 @@ void processEvent(char *data)
             }
 
             genre_t *g_curr = library.genres;
-            genre_t *found_genre = NULL; /* save the genre that contains the book */
+            genre_t *found_genre = NULL;
             book_t *book_curr = NULL;
             int found_book = 0;
 
@@ -248,7 +253,7 @@ void processEvent(char *data)
                     if (book_curr->bid == bid)
                     {
                         found_genre = g_curr; /* save containing genre */
-                        returnLoan(member, book_curr, score, lost_flag);
+                        returnLoan(member, g_curr, book_curr, score, lost_flag);
                         found_book = 1;
                         break;
                     }
@@ -278,15 +283,16 @@ void processEvent(char *data)
         if (sscanf(data, "PG %d", &gid) == 1)
         {
             printGenre(&library, gid);
+            return;
         }
     }
-    else if (strncmp(data, "D ", 2) == 0)
+    else if (strncmp(data, "D ", 1) == 0)
     {
-
+        allocateSlots();
     }
-    else if (strncmp(data, "PD ", 3) == 0)
+    else if (strncmp(data, "PD ", 2) == 0)
     {
-        // Handle PD command
+        printDisplayedBooks();
     }
     else if (strncmp(data, "PM ", 3) == 0)
     {
@@ -683,7 +689,7 @@ void printGenre(library_t *library, int gid)
     return;
 }
 
-void returnLoan(member_t *member, book_t *book, char score[8], int status)
+void returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int status)
 {
     int sc;
     /* Check score then convert to int */
@@ -694,11 +700,6 @@ void returnLoan(member_t *member, book_t *book, char score[8], int status)
     else
     {
         sc = atoi(score);
-        if (sc < 0 || sc > 10)
-        {
-            printf("R IGNORED\n");
-            return;
-        }
     }
 
     loan_t *curr = member->loans;
@@ -731,8 +732,16 @@ void returnLoan(member_t *member, book_t *book, char score[8], int status)
         book->n_reviews++;
         book->avg = (book->sum_scores / book->n_reviews); /* Calculate avg review score */
     }
+    else
+    {
+        genre->invalid_count++;
+    }
     /* Set if book is ok or lost */
     book->lost_flag = status;
+    if (book->lost_flag == 1)
+    {
+        genre->lost_count++;
+    }
 
     /* delete node if found */
     if (prev == NULL)
@@ -816,5 +825,217 @@ void printMemberLoans(member_t *member)
     {
         printf("%d\n", loan->bid);
         loan = loan->next;
+    }
+}
+
+/* Using the points helper function, allocate slots for every genre */
+void allocateSlots()
+{
+    int VALID = 0;
+    int QUOTA = 0;
+    int slots_used = 0;
+    genre_t *tmp = library.genres;
+    if (tmp == NULL)
+    {
+        printf("D IGNORED\n");
+        return;
+    }
+    if (SLOTS == 0)
+    {
+        while (tmp != NULL)
+        {
+            tmp->slots = 0;
+            tmp = tmp->next;
+        }
+        printf("DONE\n");
+        return;
+    }
+    while (tmp != NULL)
+    {
+        VALID += points(tmp);
+        tmp = tmp->next;
+    }
+    if (VALID == 0)
+    {
+        tmp = library.genres;
+        while (tmp != NULL)
+        {
+            tmp->slots = 0;
+            tmp = tmp->next;
+        }
+        printf("DONE\n");
+        return;
+    }
+    QUOTA = VALID / SLOTS;
+    if (QUOTA == 0)
+    {
+        tmp = library.genres;
+        while (tmp != NULL)
+        {
+            tmp->slots = 0;
+            tmp = tmp->next;
+        }
+        printf("DONE\n");
+        return;
+    }
+    tmp = library.genres;
+    /* Allocate seats */
+    while (tmp != NULL)
+    {
+        int pts = points(tmp);
+        int g_seats = seats(tmp, pts, QUOTA);
+        tmp->slots = g_seats;
+        slots_used += g_seats;
+        tmp = tmp->next;
+    }
+    /* Calculate remaining seats */
+    tmp = library.genres;
+    int remaining = SLOTS - slots_used;
+    while (remaining > 0)
+    {
+        genre_t *best = NULL;
+        int max_rem = -1;
+
+        tmp = library.genres;
+        while (tmp != NULL)
+        {
+            int pts = points(tmp);
+            int g_rem = rem(tmp, pts, QUOTA, tmp->slots);
+
+            if (best == NULL || g_rem > max_rem || (g_rem == max_rem && tmp->gid < best->gid))
+            {
+                best = tmp;
+                max_rem = g_rem;
+            }
+
+            tmp = tmp->next;
+        }
+
+        if (best == NULL)
+            break;
+
+        best->slots += 1;
+        remaining--;
+    }
+
+    /* Choose top books of genre */
+    tmp = library.genres;
+    while (tmp != NULL)
+    {
+        /* Free previous display */
+        if (tmp->display != NULL)
+        {
+            free(tmp->display);
+            tmp->display = NULL;
+        }
+
+        if (tmp->slots > 0)
+        {
+            tmp->display = malloc(sizeof(book_t *) * tmp->slots);
+            if (tmp->display == NULL)
+            {
+                printf("D IGNORED\n");
+                return;
+            }
+
+            book_t **curr_disp = tmp->display; // pointer to current slot in display[]
+            book_t *book = tmp->books;
+            int seats_left = tmp->slots;
+
+            while (book != NULL && seats_left > 0)
+            {
+                if (book->lost_flag == 0)
+                {
+                    *curr_disp = book; // store pointer to the book
+                    curr_disp++;       // move pointer ahead
+                    seats_left--;
+                }
+                book = book->next;
+            }
+
+            /* If not enough valid books, fill remaining slots with NULL */
+            while (seats_left > 0)
+            {
+                *curr_disp = NULL;
+                curr_disp++;
+                seats_left--;
+            }
+        }
+
+        tmp = tmp->next;
+    }
+    printf("D DONE\n");
+}
+
+/* CALCULATE GENRE POINTS */
+int points(genre_t *g)
+{
+    int points = 0;
+    book_t *tmp = g->books;
+    if (tmp == NULL)
+    {
+        return 0;
+    }
+    while (tmp != NULL)
+    {
+        if (tmp->n_reviews > 0 && tmp->lost_flag == 0)
+        {
+            points += tmp->sum_scores;
+        }
+        tmp = tmp->next;
+    }
+    return points;
+}
+
+/* Calculate genre seats */
+int seats(genre_t *g, int points, int quota)
+{
+    if (quota == 0)
+    {
+        return 0;
+    }
+    int seats;
+    seats = points / quota;
+    return seats;
+}
+
+/* Calculate remainder */
+int rem(genre_t *g, int points, int quota, int seat)
+{
+    int remainder = points - (seat * quota);
+    return remainder;
+}
+
+void printDisplayedBooks()
+{
+    printf("Display\n");
+    genre_t *tmp = library.genres;
+    if (tmp == NULL || SLOTS == 0)
+    {
+        printf("(Empty)\n");
+        return;
+    }
+    book_t **display_tmp = tmp->display;
+    while (tmp != NULL)
+    {
+        if (tmp->slots > 0 && tmp->display != NULL)
+        {
+            printf("%d:\n", tmp->gid);
+
+            int seats_left = tmp->slots;
+            book_t **display_tmp = tmp->display;
+
+            while (seats_left > 0)
+            {
+                book_t *b = *display_tmp; // Dereference pointer
+                if (b != NULL)
+                {
+                    printf("%d, %d\n", b->bid, b->avg);
+                }
+                display_tmp++; // move to next pointer
+                seats_left--;
+            }
+        }
+        tmp = tmp->next;
     }
 }
