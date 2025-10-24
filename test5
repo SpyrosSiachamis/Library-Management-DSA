@@ -1,0 +1,20 @@
+S 5
+G 10 "Fiction"
+
+BK 101 10 "Book One"
+BK 102 10 "Book Two"
+BK 103 10 "Book Three"
+
+M 1001 "Alex"
+
+# Member 1001 borrows three books
+L 1001 101
+L 1001 102
+L 1001 103
+
+# Print loans for member 1001 (expect 101, 102, 103)
+PM 1001
+
+# Return one loan (book 102) and print again
+R 1001 102 9 ok
+PM 1001
