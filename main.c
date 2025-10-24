@@ -16,6 +16,8 @@ void insertMember(library_t *library, member_t *member);
 void printGenre(library_t *library, int gid);
 void insertLoan(member_t *member, loan_t *loan);
 void returnLoan(member_t *member, book_t *book, char score[8], int status);
+void printMemberLoans(member_t *member);
+
 book_t *createBook(int gid, int bid, char title[NAME_MAX]);
 genre_t *createGenre(int gid, char name[NAME_MAX]);
 member_t *createMember(int sid, char name[NAME_MAX]);
@@ -184,13 +186,14 @@ void processEvent(char *data)
             {
                 current = current->next;
             }
-            if (current->sid == loan->sid && current != NULL)
-            {
-                insertLoan(current, loan);
-                return;
-            }
-            printf("L IGNORED\n");
-            free(loan);
+            /* check current != NULL before deref */
+            if (current != NULL)
+             {
+                 insertLoan(current, loan);
+                 return;
+             }
+             printf("L IGNORED\n");
+             free(loan);
         }
         else
         {
@@ -279,7 +282,7 @@ void processEvent(char *data)
     }
     else if (strncmp(data, "D ", 2) == 0)
     {
-        // Handle D command
+
     }
     else if (strncmp(data, "PD ", 3) == 0)
     {
@@ -287,7 +290,20 @@ void processEvent(char *data)
     }
     else if (strncmp(data, "PM ", 3) == 0)
     {
-        // Handle PM command
+        int sid;
+        if (sscanf(data, "PM %d", &sid) == 1)
+        {
+            member_t *member = library.members;
+            /* find member by sid */
+            while (member != NULL && member->sid != sid)
+                member = member->next;
+            if (member == NULL)
+            {
+                printf("Loans:\n");
+                return;
+            }
+            printMemberLoans(member);
+        }
     }
 }
 
@@ -563,7 +579,7 @@ void insertMember(library_t *library, member_t *member)
 */
 void insertLoan(member_t *member, loan_t *loan)
 {
-    /* If loans list is empty, create sentinel node for tail of loan then put it as the next pointer of the head loan node that is being added and then make the new loan as the HEAD of the list. */
+    /* empty list -> create sentinel and insert */
     if (member->loans == NULL)
     {
         loan_t *sentinel = createSentinelNode(member->sid);
@@ -578,20 +594,40 @@ void insertLoan(member_t *member, loan_t *loan)
         printf("L DONE\n");
         return;
     }
+
+    /* head is a sentinel (no real loans) -> insert new head before sentinel */
+    if (member->loans->bid == -1)
+    {
+        loan->next = member->loans;
+        member->loans = loan;
+        printf("L DONE\n");
+        return;
+    }
+
     loan_t *current = member->loans;
 
-    /* Traverse list until sentinel node OR until duplicate loan */
-    while (current->next->bid != -1 && current->bid != loan->bid)
+    /* Traverse until right before sentinel (current->next->bid == -1) or duplicate found */
+    while (current->next != NULL && current->next->bid != -1 && current->bid != loan->bid)
     {
         current = current->next;
     }
+
+    /* check duplicate at current */
     if (current->bid == loan->bid)
     {
         printf("L IGNORED\n");
         free(loan);
         return;
     }
-    /* If duplicate loan hasnt been found, create new loan */
+    /* also check duplicate at next node if it's a real loan */
+    if (current->next != NULL && current->next->bid == loan->bid)
+    {
+        printf("L IGNORED\n");
+        free(loan);
+        return;
+    }
+
+    /* insert before sentinel (or at end) */
     loan->next = current->next;
     current->next = loan;
     printf("L DONE\n");
@@ -764,5 +800,21 @@ void sortBook(genre_t *g, book_t *book)
         {
             cur->prev = book;
         }
+    }
+}
+
+void printMemberLoans(member_t *member)
+{
+    loan_t *loan = member->loans;
+    if (loan == NULL || loan->bid == -1)
+    {
+        printf("Loans:\n");
+        return;
+    }
+    printf("Loans:\n");
+    while (loan->bid != -1)
+    {
+        printf("%d\n", loan->bid);
+        loan = loan->next;
     }
 }
