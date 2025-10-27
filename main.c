@@ -14,7 +14,7 @@ void insertGenre(library_t *library, genre_t *genreNode);
 void insertBook(genre_t *genre, book_t *book);
 void insertMember(library_t *library, member_t *member);
 void printGenre(library_t *library, int gid);
-void insertLoan(member_t *member, loan_t *loan);
+int insertLoan(member_t *member, loan_t *loan);
 void returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int status);
 void printMemberLoans(member_t *member);
 int points(genre_t *g);
@@ -194,11 +194,21 @@ void processEvent(char *data)
             /* check current != NULL before deref */
             if (current != NULL)
             {
-                insertLoan(current, loan);
-                return;
+                int result = insertLoan(current, loan);
+                if (result == 1)
+                {
+                    printf("L IGNORED\n");
+                }
+                else
+                {
+                    printf("L DONE\n");
+                }
             }
-            printf("L IGNORED\n");
-            free(loan);
+            else
+            {
+                printf("L IGNORED\n");
+                free(loan);
+            }
         }
         else
         {
@@ -581,11 +591,19 @@ void insertMember(library_t *library, member_t *member)
 }
 
 /*
-    REMINDER: CHECK IF BOOK EXISTS IN ANY GENRE
+    Function that inserts a new loan in the loans list.
+    Runs on L event.
+    Checks if head is empty sentinel and creates sentinel node and then inserts new loan.
+    Else it simply inserts the new loan.
 */
-void insertLoan(member_t *member, loan_t *loan)
+int insertLoan(member_t *member, loan_t *loan)
 {
-    /* empty list -> create sentinel and insert */
+    if (loan == NULL)
+    {
+        return 1;
+    }
+
+    /* If empty list create sentinel and insert */
     if (member->loans == NULL)
     {
         loan_t *sentinel = createSentinelNode(member->sid);
@@ -593,50 +611,17 @@ void insertLoan(member_t *member, loan_t *loan)
         {
             printf("L IGNORED\n");
             free(loan);
-            return;
+            return 1;
         }
         loan->next = sentinel;
         member->loans = loan;
-        printf("L DONE\n");
-        return;
+        return 0;
     }
 
-    /* head is a sentinel (no real loans) -> insert new head before sentinel */
-    if (member->loans->bid == -1)
-    {
-        loan->next = member->loans;
-        member->loans = loan;
-        printf("L DONE\n");
-        return;
-    }
-
-    loan_t *current = member->loans;
-
-    /* Traverse until right before sentinel (current->next->bid == -1) or duplicate found */
-    while (current->next != NULL && current->next->bid != -1 && current->bid != loan->bid)
-    {
-        current = current->next;
-    }
-
-    /* check duplicate at current */
-    if (current->bid == loan->bid)
-    {
-        printf("L IGNORED\n");
-        free(loan);
-        return;
-    }
-    /* also check duplicate at next node if it's a real loan */
-    if (current->next != NULL && current->next->bid == loan->bid)
-    {
-        printf("L IGNORED\n");
-        free(loan);
-        return;
-    }
-
-    /* insert before sentinel (or at end) */
-    loan->next = current->next;
-    current->next = loan;
-    printf("L DONE\n");
+    /* Insert at head */
+    loan->next = member->loans;
+    member->loans = loan;
+    return 0;
 }
 
 /*
