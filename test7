@@ -1,0 +1,128 @@
+S 4
+G 10 "Fantasy"
+G 20 "Science Fiction"
+G 30 "Classics"
+
+#  Duplicate & Invalid (All IGNORED)
+G 10 "Fantasy Redux"     # Duplicate GID
+BK 901 99 "Missing Genre"   # Invalid GID
+M 1001 "Alice"         # First member to test duplicate SID
+M 1001 "Alice Clone"      # Duplicate SID
+
+# Add Books
+# Genre 10
+BK 101 10 "The Way of Kings"
+BK 102 10 "Mistborn"
+BK 103 10 "Elantris"
+BK 104 10 "Warbreaker"
+BK 101 10 "Duplicate BID"   # Duplicate BID in same genre
+
+# Genre 20
+BK 201 20 "Dune"
+BK 202 20 "Hyperion"
+BK 203 20 "Foundation"
+
+# Genre 30
+BK 301 30 "Moby Dick"
+BK 302 30 "Pride and Prejudice"
+
+# Add Members
+M 1002 "Bob"
+M 1003 "Charlie"
+M 1004 "David"
+M 1005 "Eve"
+M 1006 "Frank"
+M 1007 "Grace"
+M 1008 "Heidi"
+
+# Loans
+L 1001 101
+L 1002 102
+L 1003 103
+L 1004 104
+L 1005 201
+L 1006 202
+L 1007 203
+L 1008 301
+L 1001 302 # Alice loans a second book
+
+# === Invalid Loans/Returns (All should be IGNORED) ===
+L 1001 101       # Duplicate loan
+L 9999 101       # Invalid SID
+L 1001 9999      # Invalid BID
+R 1001 101 5 bad # Invalid status
+R 9999 101 5 ok  # Invalid SID
+R 1001 9999 5 ok  # Invalid BID
+R 1002 301 5 ok   # Bob (1002) never loaned Moby Dick (301)
+
+# Valid Returns
+# Genre 10: scores: 9, 9, 1, and 1 lost book
+R 1001 101 9 ok  # G10: 9 pts
+R 1002 102 9 ok  # G10: 9 pts (tie with 101)
+R 1003 103 1 ok  # G10: 1 pt
+R 1004 104 5 lost # G10: 0 pts (book is lost)
+# Genre 20: Will have scores 10, 5, and one NA
+R 1005 201 10 ok # G20: 10 pts
+R 1006 202 5 ok  # G20: 5 pts
+R 1007 203 NA ok # G20: 0 pts (NA score)
+# Genre 30: Will have scores 8, 8
+R 1008 301 8 ok  # G30: 8 pts
+R 1001 302 8 ok  # G30: 8 pts (tie with 301)
+
+# PG should show the books sorted by their new averages
+# BK 101 (9) and BK 102 (9) will be first, 101 1st
+# BK 301 (8) and BK 302 (8) will be first, 301 1st
+PG 10
+PG 20
+PG 30
+
+# Allocate and Print Display
+# SLOTS = 4
+# G10 Points = 9 + 9 + 1 = 19 (BK 104 is lost, so 0 points)
+# G20 Points = 10 + 5 + 0 = 15
+# G30 Points = 8 + 8 = 16
+# VALID = 19 + 15 + 16 = 50
+# QUOTA = 50 / 4 = 12
+#
+# Round 1 (Quota):
+# G10: 19 / 12 = 1 slot. (Rem: 7)
+# G20: 15 / 12 = 1 slot. (Rem: 3)
+# G30: 16 / 12 = 1 slot. (Rem: 4)
+# Slots Used: 3. Slots Remaining: 1.
+#
+# Round 2 (Remainder):
+# G10 has highest remainder (7), gets the last slot.
+#
+# Final Slots: G10(2), G20(1), G30(1)
+D
+PD
+
+# Re-Loan and Re-Return to TEST RE-SORTING
+# We will make the lost book (104) and the low-score book (103) high-scorers
+L 1001 103 # Loan Elantris (current avg 1)
+L 1002 104 # Loan Warbreaker (current avg 5, lost)
+
+# Check PM to see active loans
+PM 1001
+PM 1002
+
+# Return with new high scores
+R 1001 103 10 ok # BK 103 new avg = 5
+R 1002 104 10 ok # BK 104 new avg = 7. Lost flag is 0.
+
+# PG 10 should now show a new order: 101(9), 102(9), 104(7), 103(5)
+PG 10
+
+# The display should now include BK 101 and 102 from G10.
+D
+PD
+
+# SLOTS = 0
+S 0
+D
+PD # Should print (empty)
+
+# Check Empty Loans
+PM 1001
+PM 1002
+PM 1003

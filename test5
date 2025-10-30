@@ -18,3 +18,5 @@ PM 1001
 # Return one loan (book 102) and print again
 R 1001 102 9 ok
 PM 1001
+D
+PD

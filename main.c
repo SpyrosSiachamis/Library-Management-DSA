@@ -82,7 +82,7 @@ void processEvent(char *data)
         if (sscanf(data, "S %d", &slots) == 1)
         {
 
-            result = setSlots(SLOTS);
+            result = setSlots(slots);
         }
     }
     else if (strncmp(data, "G", 1) == 0)
@@ -277,10 +277,6 @@ void processEvent(char *data)
     else if (strncmp(data, "D ", 1) == 0)
     {
         result = allocateSlots();
-        if (result == 0)
-        {
-            return;
-        }
     }
     else if (strncmp(data, "PD ", 2) == 0)
     {
@@ -854,28 +850,22 @@ int allocateSlots()
     /* Calculate quota */
     QUOTA = VALID / SLOTS;
 
-    /* If quota is 0, set all genre slots to 0 and return */
-    if (QUOTA == 0)
+    /* Allocate initial seats based on quota */
+    slots_used = 0;
+    if (QUOTA > 0)
     {
         tmp = library.genres;
+        /* Allocate seats */
         while (tmp != NULL)
         {
-            tmp->slots = 0;
+            int pts = points(tmp);
+            int g_seats = seats(tmp, pts, QUOTA);
+            tmp->slots = g_seats;
+            slots_used += g_seats;
             tmp = tmp->next;
         }
-        return 0;
     }
-    tmp = library.genres;
-    /* Allocate seats */
-    while (tmp != NULL)
-    {
-        int pts = points(tmp);
-        int g_seats = seats(tmp, pts, QUOTA);
-        tmp->slots = g_seats;
-        slots_used += g_seats;
-        tmp = tmp->next;
-    }
-
+    
     /* Calculate remaining seats */
     tmp = library.genres;
     int remaining = SLOTS - slots_used;

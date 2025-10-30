@@ -1,9 +1,8 @@
-# === Initialization ===
 S 5
 G 10 "Computer Science"
 G 20 "Mathematics"
 
-# === Books (5 in G10, 7 in G20) ===
+# Books: (5 in Genre 10, 7 in Genre 20)
 BK 101 10 "Data Structures"
 BK 102 10 "Operating Systems"
 BK 103 10 "Algorithms"
@@ -18,14 +17,14 @@ BK 205 20 "Number Theory"
 BK 206 20 "Topology"
 BK 207 20 "Statistics"
 
-# === Members ===
+# Members
 M 1001 "Maria"
 M 1002 "Nikos"
 M 1003 "Anna"
 M 1004 "Kostas"
 M 1005 "Eleni"
 
-M 2001 "Yiannis"
+M 2001 "Spiros"
 M 2002 "Dimitra"
 M 2003 "Petros"
 M 2004 "Sofia"
@@ -33,7 +32,7 @@ M 2005 "Manos"
 M 2006 "Irene"
 M 2007 "Vasilis"
 
-# === Loans (1 per book) ===
+# Loans
 L 1001 101
 L 1002 102
 L 1003 103
@@ -48,15 +47,14 @@ L 2005 205
 L 2006 206
 L 2007 207
 
-# === Returns — creates avg scores ===
-# Genre 10 (BK105 will be highest)
+# Genre 10
 R 1001 101 5 ok
 R 1002 102 6 ok
 R 1003 103 7 ok
 R 1004 104 8 ok
 R 1005 105 10 ok   # Highest
 
-# Genre 20 (BK204 highest)
+# Genre 20
 R 2001 201 6 ok
 R 2002 202 6 ok
 R 2003 203 6 ok
@@ -65,15 +63,15 @@ R 2005 205 8 ok
 R 2006 206 7 ok
 R 2007 207 7 ok
 
-# === Check sorted lists ===
+# Print Genres
 PG 10
 PG 20
 
-# === Allocate and print display ===
+# Print Displayed Books
 D
 PD
 
-# === Optional: confirm members have no active loans ===
+# Make sure no loans are active
 PM 1001
 PM 1002
 PM 1003

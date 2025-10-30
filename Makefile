@@ -24,5 +24,9 @@ run4: main test4
 run5: main test5
 	./main test5
 
+run6: main test6
+	./main test6
+run7: main test7
+	./main test7
 clean:
 	rm -f *.o main *.out
