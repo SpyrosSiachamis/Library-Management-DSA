@@ -721,6 +721,8 @@ void returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int
     else
     {
         genre->invalid_count++;
+        printf("L IGNORED\n");
+        return;
     }
     /* Set if book is ok or lost */
     book->lost_flag = status;
