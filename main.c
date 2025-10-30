@@ -174,6 +174,7 @@ void processEvent(char *data)
             printf("Failure to read M event\n");
         }
     }
+    /* CHECK FOR DUPLICATE LOAN IN LOAN LIST */
     else if (strncmp(data, "L ", 2) == 0)
     {
         int sid;
