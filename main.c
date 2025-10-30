@@ -835,6 +835,8 @@ int allocateSlots()
     int QUOTA = 0;
     int slots_used = 0;
     genre_t *tmp = library.genres;
+
+    /* Check if any genres exist */
     if (tmp == NULL)
     {
         return -1;
@@ -851,10 +853,12 @@ int allocateSlots()
         return 0;
     }
     /* Calculate total valid points */
-    
+    tmp = library.genres;
     while (tmp != NULL)
     {
-        VALID += points(tmp);
+        // Call points() ONCE and store the result
+        tmp->points = points(tmp);
+        VALID += tmp->points;
         tmp = tmp->next;
     }
     /* If no valid points, set all genre slots to 0 and return */
@@ -873,22 +877,28 @@ int allocateSlots()
 
     /* Allocate initial seats based on quota */
     slots_used = 0;
-    if (QUOTA > 0)
-    {
-        tmp = library.genres;
-        /* Allocate seats */
-        while (tmp != NULL)
-        {
-            int pts = points(tmp);
-            int g_seats = seats(tmp, pts, QUOTA);
-            tmp->slots = g_seats;
-            slots_used += g_seats;
-            tmp = tmp->next;
-        }
-    }
-    
-    /* Calculate remaining seats */
     tmp = library.genres;
+    while (tmp != NULL)
+    {
+          if (QUOTA > 0)
+          {
+             /* Allocate seats */
+             {
+                int pts = tmp->points;
+                int g_seats = seats(tmp, pts, QUOTA);
+                tmp->slots = g_seats;
+                slots_used += g_seats;
+                tmp->remainder = rem(tmp, pts, QUOTA, g_seats);
+            }
+        }
+        else
+        {
+            tmp->slots = 0;
+            tmp->remainder = tmp->points;
+        }
+        tmp = tmp->next;
+    }
+    /* Calculate remaining seats */
     int remaining = SLOTS - slots_used;
     while (remaining > 0)
     {
@@ -898,22 +908,26 @@ int allocateSlots()
         tmp = library.genres;
         while (tmp != NULL)
         {
-            int pts = points(tmp);
-            int g_rem = rem(tmp, pts, QUOTA, tmp->slots);
-
-            if (best == NULL || g_rem > max_rem || (g_rem == max_rem && tmp->gid < best->gid))
+            int g_rem = tmp->remainder;
+            if (g_rem != -1)
             {
-                best = tmp;
-                max_rem = g_rem;
+                if (best == NULL || g_rem > max_rem || (g_rem == max_rem && tmp->gid < best->gid))
+                {
+                    best = tmp;
+                    max_rem = g_rem;
+                }
             }
-
             tmp = tmp->next;
         }
 
         if (best == NULL)
+        {
             break;
+        }
 
         best->slots += 1;
+        /* Mark as used */
+        best->remainder = -1;
         remaining--;
     }
 
