@@ -8,11 +8,11 @@ library_t library;
 /*
     Function declarations
 */
-void setSlots(int slots);
+int setSlots(int slots);
 void processEvent(char *data);
-void insertGenre(library_t *library, genre_t *genreNode);
-void insertBook(genre_t *genre, book_t *book);
-void insertMember(library_t *library, member_t *member);
+int insertGenre(library_t *library, genre_t *genreNode);
+int insertBook(genre_t *genre, book_t *book);
+int insertMember(library_t *library, member_t *member);
 void printGenre(library_t *library, int gid);
 int insertLoan(member_t *member, loan_t *loan);
 void returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int status);
@@ -75,17 +75,16 @@ int main(int argc, char *argv[])
 */
 void processEvent(char *data)
 {
-
+    int result = 1;
     if (strncmp(data, "S", 1) == 0)
     {
         int slots;
         if (sscanf(data, "S %d", &slots) == 1)
         {
-            setSlots(slots);
-        }
-        else
-        {
-            printf("Failure to add slots.\n");
+
+            result = setSlots(SLOTS);
+            /* FOR TESTING */
+            printf("D RESULT: %d\n", result);
         }
     }
     else if (strncmp(data, "G", 1) == 0)
@@ -100,18 +99,15 @@ void processEvent(char *data)
             genre_t *genre = createGenre(genre_id, genre_name);
             if (genre == NULL)
             {
-                printf("G IGNORED\n");
-                return;
+                result = 1;
             }
-
-            /* Insert the genre in the singly linked list for genres */
-            insertGenre(&library, genre);
-            return;
-        }
-        else
-        {
-            printf("Failure to read G event\n");
-            return;
+            else
+            {
+                /* Insert the genre in the singly linked list for genres */
+                result = insertGenre(&library, genre);
+                /* FOR TESTING */
+                printf("G RESULT: %d\n", result);
+            }
         }
     }
     else if (strncmp(data, "BK ", 3) == 0)
@@ -123,36 +119,30 @@ void processEvent(char *data)
         if (sscanf(data, "BK %d %d \"%[^\"]\"", &book_ID, &genre_ID, book_title) == 3)
         {
             book_t *bookNode = createBook(genre_ID, book_ID, book_title);
-            if (bookNode == NULL)
+            if (bookNode != NULL)
             {
-                printf("BK IGNORED\n");
-                return;
-            }
+                genre_t *genre = library.genres;
+                int found = 0;
 
-            genre_t *genre = library.genres;
-            int found = 0;
-
-            while (genre != NULL)
-            {
-                if (genre->gid == bookNode->gid)
+                while (genre != NULL)
                 {
-                    found = 1;
-                    insertBook(genre, bookNode);
-                    break;
+                    if (genre->gid == bookNode->gid)
+                    {
+                        found = 1;
+                        result = insertBook(genre, bookNode);
+                        break;
+                    }
+                    genre = genre->next;
                 }
-                genre = genre->next;
-            }
 
-            if (!found)
-            {
-                free(bookNode);
-                printf("BK IGNORED\n");
+                if (!found)
+                {
+                    free(bookNode);
+                }
             }
         }
-        else
-        {
-            printf("Failure to read BK event\n");
-        }
+        /* FOR TESTING */
+        printf("BK Result: %d\n", result);
     }
     else if (strncmp(data, "M ", 2) == 0)
     {
@@ -162,16 +152,12 @@ void processEvent(char *data)
         if (sscanf(data, "M %d \"%[^\"]\"", &sid, name) == 2)
         {
             member_t *memberNode = createMember(sid, name);
-            if (memberNode == NULL)
+            if (memberNode != NULL)
             {
-                printf("M IGNORED\n");
-                return;
+                result = insertMember(&library, memberNode);
+                /* For TESTING */
+                printf("M Result: %d\n", result);
             }
-            insertMember(&library, memberNode);
-        }
-        else
-        {
-            printf("Failure to read M event\n");
         }
     }
     /* CHECK FOR DUPLICATE LOAN IN LOAN LIST */
@@ -182,38 +168,45 @@ void processEvent(char *data)
         if (sscanf(data, "L %d %d", &sid, &bid) == 2)
         {
             loan_t *loan = createLoan(sid, bid);
-            if (loan == NULL)
+            if (loan != NULL)
             {
-                printf("L IGNORED\n");
-                return;
-            }
-            member_t *current = library.members;
-            while (current != NULL && current->sid != loan->sid)
-            {
-                current = current->next;
-            }
-            /* check current != NULL before deref */
-            if (current != NULL)
-            {
-                int result = insertLoan(current, loan);
-                if (result == 1)
+                member_t *current = library.members;
+                /* Searches for member */
+                while (current != NULL && current->sid != loan->sid)
                 {
-                    printf("L IGNORED\n");
+                    current = current->next;
+                }
+                /* check if Member temp isnt NULL before inserting loan. */
+                if (current != NULL)
+                {
+                    /* Check for duplicate loan */
+                    loan_t *loan_curr = current->loans;
+                    while (loan_curr != NULL)
+                    {
+                        if (loan_curr->bid == bid)
+                        {
+                            break;
+                        }
+                        loan_curr = loan_curr->next;
+                    }
+                    /* If duplicate found, free loan */
+                    if (loan_curr != NULL && loan_curr->bid == bid)
+                    {
+                        free(loan);
+                    }
+                    else
+                    {
+                        /* Insert loan */
+                        result = insertLoan(current, loan);
+                    }
                 }
                 else
                 {
-                    printf("L DONE\n");
+                    free(loan);
                 }
             }
-            else
-            {
-                printf("L IGNORED\n");
-                free(loan);
-            }
-        }
-        else
-        {
-            printf("L IGNORED\n");
+            /* for TESTING */
+            printf("L Result: %d\n", result);
         }
     }
     else if (strncmp(data, "R ", 2) == 0)
@@ -322,16 +315,23 @@ void processEvent(char *data)
             printMemberLoans(member);
         }
     }
+    /* If event was successful, print DONE */
+    if (result == 0)
+    {
+        printf("DONE\n");
+        return;
+    }
+    printf("IGNORED\n");
 }
 
 /*
     Sets the total number of available display slots for the library.
     These get allocated later on for every genre respectively.
 */
-void setSlots(int slots)
+int setSlots(int slots)
 {
     SLOTS = slots;
-    printf("S DONE\n");
+    return 0;
 }
 /* Helper Function to create Genre Node */
 genre_t *createGenre(int gid, char name[NAME_MAX])
@@ -354,7 +354,7 @@ genre_t *createGenre(int gid, char name[NAME_MAX])
     Function to insert Genre based on its ID, this will keep the Genre List sorted.
     Function runs on G event.
 */
-void insertGenre(library_t *library, genre_t *genreNode)
+int insertGenre(library_t *library, genre_t *genreNode)
 {
     genre_t *tmp = library->genres;
     genre_t *prev = NULL;
@@ -362,16 +362,16 @@ void insertGenre(library_t *library, genre_t *genreNode)
     if (library->genres == NULL)
     {
         library->genres = genreNode;
-        printf("G DONE\n");
-        return;
+        /* Returns 0 for DONE */
+        return 0;
     }
     /* If list is not NULL and genreNode gid < head gid, make genreNode head of the list */
     if (genreNode->gid < tmp->gid)
     {
         genreNode->next = tmp;
         library->genres = genreNode;
-        printf("G DONE\n");
-        return;
+        /* Returns 0 for DONE */
+        return 0;
     }
 
     /* Traverse until second to last node to check for duplicates*/
@@ -385,8 +385,8 @@ void insertGenre(library_t *library, genre_t *genreNode)
     if (tmp != NULL && tmp->gid == genreNode->gid || (prev != NULL && prev->gid == genreNode->gid))
     {
         free(genreNode);
-        printf("G IGNORED\n");
-        return;
+        /* Returns 1 for IGNORED */
+        return 1;
     }
 
     /* If no duplicate gid is found, insert the genre to the singly linked list*/
@@ -395,7 +395,8 @@ void insertGenre(library_t *library, genre_t *genreNode)
     {
         prev->next = genreNode;
     }
-    printf("G DONE\n");
+    /* Returns 0 for DONE */
+    return 0;
 }
 
 /* Helper Function to create Book Node */
@@ -471,7 +472,7 @@ loan_t *createSentinelNode(int sid)
     If rating is equal, sorting is based on bid
     Function runs on BK event.
 */
-void insertBook(genre_t *genre, book_t *bookNode)
+int insertBook(genre_t *genre, book_t *bookNode)
 {
     /* Check for duplicate bid */
     book_t *tmp = genre->books;
@@ -480,8 +481,7 @@ void insertBook(genre_t *genre, book_t *bookNode)
         if (tmp->bid == bookNode->bid)
         {
             free(bookNode);
-            printf("BK IGNORED\n");
-            return;
+            return 1;
         }
         tmp = tmp->next;
     }
@@ -492,8 +492,7 @@ void insertBook(genre_t *genre, book_t *bookNode)
         genre->books = bookNode;
         bookNode->next = NULL;
         bookNode->prev = NULL;
-        printf("BK DONE\n");
-        return;
+        return 0;
     }
 
     /* Insert in sorted position */
@@ -537,7 +536,7 @@ void insertBook(genre_t *genre, book_t *bookNode)
         }
     }
 
-    printf("BK DONE\n");
+    return 0;
 }
 
 /*
@@ -546,25 +545,24 @@ void insertBook(genre_t *genre, book_t *bookNode)
     The insertion is sorted based on mid (lowest to highest).
     Function runs on M event.
 */
-void insertMember(library_t *library, member_t *member)
+int insertMember(library_t *library, member_t *member)
 {
 
     member_t *current = library->members;
     member_t *prev = NULL;
+
     /* If the member list is empty, make the new Member it's head. */
     if (library->members == NULL)
     {
         library->members = member;
-        printf("M DONE\n");
-        return;
+        return 0;
     }
     /* If list is not NULL and member sid < head sid, make genreNode head of the list */
     if (member->sid < current->sid)
     {
         member->next = current;
         library->members = member;
-        printf("M DONE\n");
-        return;
+        return 0;
     }
 
     /* Traverse until second to last node to check for duplicates*/
@@ -575,11 +573,10 @@ void insertMember(library_t *library, member_t *member)
     }
 
     /* Check last member node to ensure no duplicates*/
-    if (current != NULL && current->sid == member->sid || (prev != NULL && prev->sid == member->sid))
+    if (current != NULL && current->sid == member->sid)
     {
         free(member);
-        printf("IGNORED\n");
-        return;
+        return 1;
     }
 
     /* If no duplicate gid is found, insert the member to the singly linked list*/
@@ -588,7 +585,7 @@ void insertMember(library_t *library, member_t *member)
     {
         prev->next = member;
     }
-    printf("M DONE\n");
+    return 0;
 }
 
 /*
@@ -610,7 +607,6 @@ int insertLoan(member_t *member, loan_t *loan)
         loan_t *sentinel = createSentinelNode(member->sid);
         if (sentinel == NULL)
         {
-            printf("L IGNORED\n");
             free(loan);
             return 1;
         }
@@ -998,10 +994,16 @@ void printDisplayedBooks()
     genre_t *tmp = library.genres;
     if (tmp == NULL || SLOTS == 0)
     {
-        printf("(Empty)\n");
+        printf("(empty)\n");
         return;
     }
     book_t **display_tmp = tmp->display;
+    if (display_tmp == NULL)
+    {
+        printf("(empty)\n");
+        return;
+    }
+
     while (tmp != NULL)
     {
         if (tmp->slots > 0 && tmp->display != NULL)
@@ -1013,12 +1015,12 @@ void printDisplayedBooks()
 
             while (seats_left > 0)
             {
-                book_t *b = *display_tmp; // Dereference pointer
+                book_t *b = *display_tmp;
                 if (b != NULL)
                 {
                     printf("%d, %d\n", b->bid, b->avg);
                 }
-                display_tmp++; // move to next pointer
+                display_tmp++;
                 seats_left--;
             }
         }
