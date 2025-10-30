@@ -167,8 +167,29 @@ void processEvent(char *data)
                 {
                     current = current->next;
                 }
+
+                /* Check if book exists in Library */
+                int book_found = 0;
+                genre_t *g_curr = library.genres;
+                while (g_curr != NULL)
+                {
+                    book_t *b_curr = g_curr->books;
+                    while (b_curr != NULL)
+                    {
+                        if (b_curr->bid == loan->bid)
+                        {
+                            book_found = 1;
+                            break;
+                        }
+                        b_curr = b_curr->next;
+                    }
+                    if (book_found)
+                        break;
+                    g_curr = g_curr->next;
+                }
+
                 /* check if Member temp isnt NULL before inserting loan. */
-                if (current != NULL)
+                if (current != NULL && book_found)
                 {
                     /* Check for duplicate loan */
                     loan_t *loan_curr = current->loans;
