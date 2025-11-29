@@ -5,29 +5,6 @@
 int SLOTS;
 library_t library;
 
-/*
-    Function declarations
-*/
-int setSlots(int slots);
-void processEvent(char *data);
-int insertGenre(library_t *library, genre_t *genreNode);
-int insertBook(genre_t *genre, book_t *book);
-int insertMember(library_t *library, member_t *member);
-int printGenre(library_t *library, int gid);
-int insertLoan(member_t *member, loan_t *loan);
-int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int status);
-void printMemberLoans(member_t *member);
-int points(genre_t *g);
-int seats(genre_t *g, int points, int quota);
-int rem(genre_t *g, int points, int quota, int seat);
-int allocateSlots();
-void printDisplayedBooks();
-book_t *createBook(int gid, int bid, char title[NAME_MAX]);
-genre_t *createGenre(int gid, char name[NAME_MAX]);
-member_t *createMember(int sid, char name[NAME_MAX]);
-loan_t *createLoan(int sid, int bid);
-loan_t *createSentinelNode(int sid);
-void sortBook(genre_t *g, book_t *book);
 
 /*
     ----------------------- SOS -----------------------------
@@ -1072,4 +1049,21 @@ void printDisplayedBooks()
     {
         printf("(empty)\n");
     }
+}
+
+/* Function that creates a new BookNode node for the AVL tree */
+BookNode* MakeNewBookNode(book_t *book)
+{
+    BookNode* node = malloc(sizeof(BookNode));
+    if(!node) return NULL;
+    strcpy(node->title,book->title);
+    node->book = book;
+    node->height =  1;
+    node->rc = node->lc = NULL;
+    return node;
+}
+
+void Visit(BookNode *book)
+{
+    printf("Key: %s, Data: %s\n", book->title, book->book->title);
 }

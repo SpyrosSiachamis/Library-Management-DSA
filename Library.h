@@ -50,6 +50,19 @@ typedef struct book {
     // struct book *next_global;         /* π.χ. unsorted λίστα όλων των βιβλίων */
 } book_t;
 
+/* 
+   BOOKNODE
+   Acts as the node for the AVL tree that is used for storing book pointers
+*/
+typedef struct BookNode
+{
+   char title[TITLE_MAX]; /* Book title, used as key for BST/AVL insertion //Lexicographically: left = strcmp < 0 and right = strcmp > 0 */
+   book_t *book; /* Pointer that is used to save the address of the book, allows for quick O(logn) search over O(N) of the linked list*/
+   struct BookNode *lc;
+   struct BookNode *rc;
+   int height;
+} BookNode;
+
 /* -----------------------------------------
    MEMBER: μέλος βιβλιοθήκης
    - Κρατά unsorted λίστα ενεργών δανεισμών (loan_t) με χρήση sentinel node
@@ -79,6 +92,9 @@ typedef struct genre {
 
     /* διπλά συνδεδεμένη λίστα βιβλίων ταξινομημένη κατά avg φθίνουσα. */
     book_t* books;
+
+   BookNode *bookIndex; /* AVL node index of Genre */
+
     int lost_count;
     int invalid_count;
     /* Προσθεσα τις μεταβλητες για το Display */
@@ -128,4 +144,39 @@ typedef struct library {
      + επιλογή κορυφαίων ανά genre (γραμμική στα seats(g)).
 */
 
+/*
+    Function declarations
+*/
+int setSlots(int slots);
+void processEvent(char *data);
+int insertGenre(library_t *library, genre_t *genreNode);
+int insertBook(genre_t *genre, book_t *book);
+int insertMember(library_t *library, member_t *member);
+int printGenre(library_t *library, int gid);
+int insertLoan(member_t *member, loan_t *loan);
+int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int status);
+void printMemberLoans(member_t *member);
+int points(genre_t *g);
+int seats(genre_t *g, int points, int quota);
+int rem(genre_t *g, int points, int quota, int seat);
+int allocateSlots();
+void printDisplayedBooks();
+book_t *createBook(int gid, int bid, char title[NAME_MAX]);
+genre_t *createGenre(int gid, char name[NAME_MAX]);
+member_t *createMember(int sid, char name[NAME_MAX]);
+loan_t *createLoan(int sid, int bid);
+loan_t *createSentinelNode(int sid);
+void sortBook(genre_t *g, book_t *book);
+
+/* AVL FUNCTIONS */
+BookNode* MakeNewBookNode(book_t *book);
+void PreOrder(BookNode *root);
+void InOrder(BookNode *root);
+BookNode *AVLLookUp(int key, BookNode *root);
+BookNode *AVLMinimum(BookNode *root);
+BookNode *AVLMaximum(BookNode *root);
+int height(BookNode *n);
+void update_height(BookNode *n);
+int get_balance(BookNode *n);
+BookNode *LeftRotate(BookNode* root, BookNode* unbalanced);
 #endif
