@@ -170,13 +170,15 @@ void sortBook(genre_t *g, book_t *book);
 
 /* AVL FUNCTIONS */
 BookNode* MakeNewBookNode(book_t *book);
+BookNode *AVLLookUp(char* key, BookNode *root);
+BookNode* LeftRotate(BookNode* x);
+BookNode* RightRotate(BookNode* x);
+BookNode *AVLInsert(BookNode* root, book_t *book);
+int height(BookNode *n);
+int max_height(int x, int y);
+int get_balance(BookNode *n);
 void PreOrder(BookNode *root);
 void InOrder(BookNode *root);
-BookNode *AVLLookUp(int key, BookNode *root);
-BookNode *AVLMinimum(BookNode *root);
-BookNode *AVLMaximum(BookNode *root);
-int height(BookNode *n);
-void update_height(BookNode *n);
-int get_balance(BookNode *n);
-BookNode *LeftRotate(BookNode* root, BookNode* unbalanced);
+void Visit(BookNode* book);
+
 #endif

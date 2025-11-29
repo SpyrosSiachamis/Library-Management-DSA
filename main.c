@@ -1063,6 +1063,82 @@ BookNode* MakeNewBookNode(book_t *book)
     return node;
 }
 
+BookNode *AVLLookUp(char* key, BookNode *book)
+{
+    if (!book) return NULL;
+    if (strcmp(key,book->title) == 0) return book;
+    if (strcmp(key,book->title) < 0) return AVLLookUp(key, book->lc);
+    return AVLLookUp(key, book->rc);
+}
+
+BookNode* LeftRotate(BookNode* x)
+{
+    BookNode* rightChild = x->rc;
+    BookNode* LeftChildR = rightChild->lc; /* Left Child of rightChild of x */
+
+    /* Rotation */
+    rightChild->lc = x; /* Set left child of right child of x x itself. */
+    x->rc = LeftChildR; /* set the left child of the right child of righChild of x as leftchild of x */
+
+    x->height = max_height(height(x->lc), height(x->rc)) + 1;
+    
+    /* New root of subtree */
+    rightChild->height = max_height(height(rightChild->lc), height(rightChild->rc)) + 1;
+
+    return rightChild;
+}
+
+BookNode* RightRotate(BookNode* x)
+{
+    BookNode* leftChild = x->lc;
+    BookNode* rightChildL = leftChild->rc; /* Right child of leftChild of x */
+
+    /* Rotation */
+    leftChild->rc = x; /* Pivot leftChild so its right child becomes x */
+    x->lc = rightChildL; /* Move right child of leftChild to left subtree of x */
+
+    x->height = max_height(height(x->lc), height(x->rc)) + 1;
+    
+    /* New root of subtree */
+    leftChild->height = max_height(height(leftChild->lc), height(leftChild->rc)) + 1;
+
+    return leftChild;
+}
+
+int height(BookNode* n)
+{
+    if (!n) return 0;
+    return n->height;
+}
+
+int max_height(int x, int y)
+{
+    if (x>y) return x;
+    else return y;
+}
+
+int get_balance(BookNode *n) {
+    if (!n) return 0;
+    return height(n->lc) - height(n->rc);
+}
+
+void PreOrder(BookNode *root)
+{
+    if (!root) return;
+    Visit(root);
+    PreOrder(root->left);
+    PreOrder(root->right);
+}
+
+void InOrder(BookNode *root)
+{
+    if (!root)
+        return;
+    InOrder(root->left);
+    Visit(root);
+    InOrder(root->right);
+}
+
 void Visit(BookNode *book)
 {
     printf("Key: %s, Data: %s\n", book->title, book->book->title);
