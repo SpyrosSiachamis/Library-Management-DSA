@@ -59,5 +59,11 @@
   "files.associations": {
     "stddef.h": "c",
     "library.h": "c"
-  }
+  },
+  "workbench.colorCustomizations": {
+    "terminal.background": "#00000000",
+    "minimap.background": "#00000000",
+    "scrollbar.shadow": "#00000000"
+  },
+  "cSpell.enabled": false
 }

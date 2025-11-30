@@ -91,18 +91,18 @@ void processEvent(char *data)
         /* %[^\"] reads all chars until closing quotation character (Book title) "*/
         if (sscanf(data, "BK %d %d \"%[^\"]\"", &book_ID, &genre_ID, book_title) == 3)
         {
-            book_t *bookNode = createBook(genre_ID, book_ID, book_title);
-            if (bookNode != NULL)
+            book_t *BookIndex = createBook(genre_ID, book_ID, book_title);
+            if (BookIndex != NULL)
             {
                 genre_t *genre = library.genres;
                 int found = 0;
 
                 while (genre != NULL)
                 {
-                    if (genre->gid == bookNode->gid)
+                    if (genre->gid == BookIndex->gid)
                     {
                         found = 1;
-                        result = insertBook(genre, bookNode);
+                        result = insertBook(genre, BookIndex);
                         break;
                     }
                     genre = genre->next;
@@ -110,7 +110,7 @@ void processEvent(char *data)
 
                 if (!found)
                 {
-                    free(bookNode);
+                    free(BookIndex);
                 }
             }
         }
@@ -461,15 +461,15 @@ loan_t *createSentinelNode(int sid)
     If rating is equal, sorting is based on bid
     Function runs on BK event.
 */
-int insertBook(genre_t *genre, book_t *bookNode)
+int insertBook(genre_t *genre, book_t *BookIndex)
 {
     /* Check for duplicate bid */
     book_t *tmp = genre->books;
     while (tmp != NULL)
     {
-        if (tmp->bid == bookNode->bid)
+        if (tmp->bid == BookIndex->bid)
         {
-            free(bookNode);
+            free(BookIndex);
             return 1;
         }
         tmp = tmp->next;
@@ -478,9 +478,9 @@ int insertBook(genre_t *genre, book_t *bookNode)
     /* Insert at head if books == NULL */
     if (genre->books == NULL)
     {
-        genre->books = bookNode;
-        bookNode->next = NULL;
-        bookNode->prev = NULL;
+        genre->books = BookIndex;
+        BookIndex->next = NULL;
+        BookIndex->prev = NULL;
         return 0;
     }
 
@@ -492,12 +492,12 @@ int insertBook(genre_t *genre, book_t *bookNode)
     while (current != NULL)
     {
         /* Higher avg */
-        if (bookNode->avg > current->avg)
+        if (BookIndex->avg > current->avg)
         {
             break;
         }
         /* Same avg, lower bid first */
-        if (bookNode->avg == current->avg && bookNode->bid < current->bid)
+        if (BookIndex->avg == current->avg && BookIndex->bid < current->bid)
         {
             break;
         }
@@ -508,20 +508,20 @@ int insertBook(genre_t *genre, book_t *bookNode)
     /* Insert at head */
     if (prev == NULL)
     {
-        bookNode->next = genre->books;
-        bookNode->prev = NULL;
-        genre->books->prev = bookNode;
-        genre->books = bookNode;
+        BookIndex->next = genre->books;
+        BookIndex->prev = NULL;
+        genre->books->prev = BookIndex;
+        genre->books = BookIndex;
     }
     /* Insert in middle or at end */
     else
     {
-        bookNode->next = current;
-        bookNode->prev = prev;
-        prev->next = bookNode;
+        BookIndex->next = current;
+        BookIndex->prev = prev;
+        prev->next = BookIndex;
         if (current != NULL)
         {
-            current->prev = bookNode;
+            current->prev = BookIndex;
         }
     }
 
@@ -1051,10 +1051,10 @@ void printDisplayedBooks()
     }
 }
 
-/* Function that creates a new BookNode node for the AVL tree */
-BookNode* MakeNewBookNode(book_t *book)
+/* Function that creates a new BookIndex node for the AVL tree */
+BookIndex* MakeNewBookNode(book_t *book)
 {
-    BookNode* node = malloc(sizeof(BookNode));
+    BookIndex* node = malloc(sizeof(BookIndex));
     if(!node) return NULL;
     strcpy(node->title,book->title);
     node->book = book;
@@ -1063,7 +1063,7 @@ BookNode* MakeNewBookNode(book_t *book)
     return node;
 }
 
-BookNode *AVLLookUp(char* key, BookNode *book)
+BookIndex *AVLLookUp(char* key, BookIndex *book)
 {
     if (!book) return NULL;
     if (strcmp(key,book->title) == 0) return book;
@@ -1071,10 +1071,10 @@ BookNode *AVLLookUp(char* key, BookNode *book)
     return AVLLookUp(key, book->rc);
 }
 
-BookNode* LeftRotate(BookNode* x)
+BookIndex* LeftRotate(BookIndex* x)
 {
-    BookNode* rightChild = x->rc;
-    BookNode* LeftChildR = rightChild->lc; /* Left Child of rightChild of x */
+    BookIndex* rightChild = x->rc;
+    BookIndex* LeftChildR = rightChild->lc; /* Left Child of rightChild of x */
 
     /* Rotation */
     rightChild->lc = x; /* Set left child of right child of x x itself. */
@@ -1088,10 +1088,10 @@ BookNode* LeftRotate(BookNode* x)
     return rightChild;
 }
 
-BookNode* RightRotate(BookNode* x)
+BookIndex* RightRotate(BookIndex* x)
 {
-    BookNode* leftChild = x->lc;
-    BookNode* rightChildL = leftChild->rc; /* Right child of leftChild of x */
+    BookIndex* leftChild = x->lc;
+    BookIndex* rightChildL = leftChild->rc; /* Right child of leftChild of x */
 
     /* Rotation */
     leftChild->rc = x; /* Pivot leftChild so its right child becomes x */
@@ -1105,7 +1105,7 @@ BookNode* RightRotate(BookNode* x)
     return leftChild;
 }
 
-BookNode* AVLInsert(BookNode* root, book_t *book)
+BookIndex* AVLInsert(BookIndex* root, book_t *book)
 {
     if(!root) return MakeNewBookNode(book); /* If we arrived to end of subtree, add as new leaf */
     if(strcmp(book->title, root->title) < 0) root->lc = AVLInsert(root->lc, book); /* If title is lexicographically smaller than the root title, go left */
@@ -1145,7 +1145,7 @@ BookNode* AVLInsert(BookNode* root, book_t *book)
     return root;
 }
 
-int height(BookNode* n)
+int height(BookIndex* n)
 {
     if (!n) return 0;
     return n->height;
@@ -1157,12 +1157,12 @@ int max_height(int x, int y)
     else return y;
 }
 
-int get_balance(BookNode *n) {
+int get_balance(BookIndex *n) {
     if (!n) return 0;
     return height(n->lc) - height(n->rc);
 }
 
-void PreOrder(BookNode *root)
+void PreOrder(BookIndex *root)
 {
     if (!root) return;
     Visit(root);
@@ -1170,7 +1170,7 @@ void PreOrder(BookNode *root)
     PreOrder(root->rc);
 }
 
-void InOrder(BookNode *root)
+void InOrder(BookIndex *root)
 {
     if (!root)
         return;
@@ -1179,7 +1179,7 @@ void InOrder(BookNode *root)
     InOrder(root->rc);
 }
 
-void Visit(BookNode *book)
+void Visit(BookIndex *book)
 {
     printf("Key: %s, Data: %s\n", book->title, book->book->title);
 }
