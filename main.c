@@ -1105,6 +1105,46 @@ BookNode* RightRotate(BookNode* x)
     return leftChild;
 }
 
+BookNode* AVLInsert(BookNode* root, book_t *book)
+{
+    if(!root) return MakeNewBookNode(book); /* If we arrived to end of subtree, add as new leaf */
+    if(strcmp(book->title, root->title) < 0) root->lc = AVLInsert(root->lc, book); /* If title is lexicographically smaller than the root title, go left */
+    else if (strcmp(book->title, root->title) > 0) root->rc = AVLInsert(root->rc, book);/* If title is lexicographically smaller than the root title, go right */
+    else return root; /* Don't insert duplicate title */
+
+    /* Calculate height of current node */
+    root->height = 1 + (max_height(height(root->lc), height(root->rc))); /* Add largest height from left and right child and then add + 1 for current node */
+
+    int balance = get_balance(root);
+    
+    /* LL */
+    if (balance > 1 && (strcmp(book->title, root->lc->title) < 0))
+    {
+        return RightRotate(root);
+    }
+
+    /* RR */
+    else if(balance < -1 && (strcmp(book->title, root->rc->title) > 0))
+    {
+        return LeftRotate(root);
+    }
+
+    /* LR */
+    else if(balance > 1 && (strcmp(book->title, root->lc->title) > 0))
+    {
+        root->lc = LeftRotate(root->lc);
+        return RightRotate(root);
+    }
+
+    /* RL */
+    else if(balance < -1 && (strcmp(book->title, root->rc->title) < 0))
+    {
+        root->rc = RightRotate(root->rc);
+        return LeftRotate(root);
+    }
+    return root;
+}
+
 int height(BookNode* n)
 {
     if (!n) return 0;
@@ -1126,17 +1166,17 @@ void PreOrder(BookNode *root)
 {
     if (!root) return;
     Visit(root);
-    PreOrder(root->left);
-    PreOrder(root->right);
+    PreOrder(root->lc);
+    PreOrder(root->rc);
 }
 
 void InOrder(BookNode *root)
 {
     if (!root)
         return;
-    InOrder(root->left);
+    InOrder(root->lc);
     Visit(root);
-    InOrder(root->right);
+    InOrder(root->rc);
 }
 
 void Visit(BookNode *book)
