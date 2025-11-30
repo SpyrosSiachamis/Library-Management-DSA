@@ -108,7 +108,6 @@ typedef struct genre
       Αποθηκεύουμε απλώς pointers στα book_t (δεν αντιγράφουμε δεδομένα). */
    int slots;        /* πόσα επιλέχθηκαν για προβολή σε αυτό το genre */
    book_t **display; /* δυναμικός πίνακας με pointers στα επιλεγμένα βιβλία για προβολή */
-   BookIndex *bookIndex;
 
    /* Μονοσυνδεδεμένη λίστα όλων των genres ταξινομημένη κατά gid (για εύκολη σάρωση). */
    struct genre *next;

@@ -299,6 +299,30 @@ void processEvent(char *data)
             return;
         }
     }
+    else if(strncmp(data, "F ", 2) == 0)
+    {
+        // mplampla
+    }
+    else if(strncmp(data, "TOP ", 4) == 0)
+    {
+        // mplampla
+    }
+    else if(strncmp(data, "AM ", 3) == 0)
+    {
+        // mplampla
+    }
+    else if(strncmp(data, "U ", 2) == 0)
+    {
+        // mplampla
+    }
+    else if(strncmp(data, "X ", 2) == 0)
+    {
+        // mplampla
+    }
+    else if(strncmp(data, "BF ", 3) == 0)
+    {
+        // mplampla
+    }
     /* If event was not recognized or line is empty, exit function */
     else
     {
