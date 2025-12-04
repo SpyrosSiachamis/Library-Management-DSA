@@ -1006,7 +1006,7 @@ int points(genre_t *g)
 /* Calculate genre seats */
 int seats(genre_t *g, int points, int quota)
 {
-    if (quota == 0)
+    if (quota == 0) 
     {
         return 0;
     }
@@ -1076,7 +1076,7 @@ void printDisplayedBooks()
 }
 
 /* Function that creates a new BookIndex node for the AVL tree */
-BookIndex* MakeNewBookNode(book_t *book)
+BookIndex* MakeNewBookIndex(book_t *book)
 {
     BookIndex* node = malloc(sizeof(BookIndex));
     if(!node) return NULL;
@@ -1206,4 +1206,43 @@ void InOrder(BookIndex *root)
 void Visit(BookIndex *book)
 {
     printf("Key: %s, Data: %s\n", book->title, book->book->title);
+}
+
+/* HEAP */
+int Parent(int index)
+{
+   return (index - 1) / 2;
+}
+
+void heap_insert(book_t *book, int size, book_t *heap[])
+{
+    if (size == HEAP_MAX) return heap;
+    int NewBookIndex = size;
+    int key = book->avg;
+    int key2 = book->bid;
+
+    heap[size] = book;
+    NewBookIndex = Parent(NewBookIndex);
+
+    while (NewBookIndex > 0)
+    {
+        int ParentIndex = Parent(NewBookIndex);
+    }
+}
+
+/*  Calculates which of the 2 books has priority in the heap 
+    If 0, no switching books
+    If 1, B1 has priority so we switch
+*/
+int CalculatePriority(book_t *book1, book_t *book2)
+{
+    /*b1 and b2 have same avg. B1 has priority */
+    if (book1->avg == book2->avg && book1->bid < book2->bid) return 1;
+    /*b1 and b2 have same avg. B2 has priority */
+    else if (book1->avg == book2->avg && book1->bid > book2->bid) return 0;
+    /* B1 has priority */
+    else if(book1->avg > book2->avg) return 1;
+    /* B2 has priority */
+    else if(book1->avg < book2->avg) return 0;
+    return 0;
 }

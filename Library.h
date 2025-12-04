@@ -8,7 +8,7 @@
 
 #define TITLE_MAX 128
 #define NAME_MAX 64
-
+#define HEAP_MAX 64 /* Max capacity of heap */
 /*  Παγκόσμια θέση προβολών (ορίζεται από την εντολή S <slots>)
     Φροντίστε να το κάνετε define στο αντίστοιχο .c αρχείο, ως
     int SLOTS;
@@ -43,7 +43,7 @@ typedef struct book
    int n_reviews;  /* πλήθος έγκυρων βαθμολογιών */
    int avg;        /* cache: floor(sum_scores / n_reviews); 0 αν n_reviews=0 */
    int lost_flag;  /* 1 αν δηλωμένο lost, αλλιώς 0 */
-   int heap_pos;
+   int heap_pos;   /* Θεση στο recHeap. Εαν δεν ειναι μεσα ειναι -1 */
    /* Διπλά συνδεδεμένη λίστα του genre, ταξινομημένη κατά avg (desc). */
    struct book *prev;
    struct book *next;
@@ -65,6 +65,24 @@ typedef struct BookIndex
    int height;
 } BookIndex;
 
+/*
+   πεδία (struct MemberActivity):
+sid — Κωδικός μέλους.
+loans_count — Πλήθος δανεισμών.
+reviews_count — Πλήθος αξιολογήσεων.
+score_sum — Σύνολο βαθμολογιών που έχει δώσει.
+next — Δείκτης στον επόμενο κόμβο λίστας.
+
+*/
+typedef struct MemberActivity
+{
+   int sid;
+   int loans_count;
+   int reviews_count;
+   int score_sum;
+   struct MemberActivity *next;
+} MemberActivity;
+
 /* -----------------------------------------
    MEMBER: μέλος βιβλιοθήκης
    - Κρατά unsorted λίστα ενεργών δανεισμών (loan_t) με χρήση sentinel node
@@ -79,7 +97,7 @@ typedef struct member
       - Εισαγωγή: O(1) push-front
       - Διαγραφή γνωστού bid: O(1) αν κρατάτε prev pointer στη σάρωση */
    loan_t *loans;
-   // MemberActivity* activity;
+   MemberActivity *activity; /* Δεικτης προς τον κομβο της δραστιριοτητας του μέλους, για quick updating */
    /* Μονοσυνδεδεμένη λίστα όλων των μελών ταξινομημένη κατά sid */
    struct member *next;
 } member_t;
@@ -113,6 +131,16 @@ typedef struct genre
    struct genre *next;
 } genre_t;
 
+/* Δομη σωρου
+   Έχει μέγιστη χωρητικότητα 64 δείκτες (HEAP_MAX)
+   Με το capacity μπορουμε να θεσουμε σωρους με λιγότερους δείκτες
+*/
+typedef struct RecHeap
+{
+   book_t *heap[HEAP_MAX];
+   int size, capacity;
+} RecHeap;
+
 /* -----------------------------------------
    LIBRARY: κεντρικός "ρίζας"
    - Κρατά λίστα Genres (sorted by gid)
@@ -120,10 +148,10 @@ typedef struct genre
    ----------------------------------------- */
 typedef struct library
 {
-   genre_t *genres;   /* κεφαλή λίστας genres (sorted by gid) */
-   member_t *members; /* διπλά συνδεδεμένη λίστα μελών (sorted by sid) */
-   //  RecHeap* recommendations; /* δείκτης στον σωρό συστάσεων (μέγιστο σωρό). */
-   // MemberActivity* activity /* δείκτης στη λίστα δραστηριότητας μελών. */
+   genre_t *genres;          /* κεφαλή λίστας genres (sorted by gid) */
+   member_t *members;        /* διπλά συνδεδεμένη λίστα μελών (sorted by sid) */
+   RecHeap *recommendations; /* δείκτης στον σωρό συστάσεων (μέγιστο σωρό). */
+   MemberActivity *activity  /* δείκτης στη λίστα δραστηριότητας μελών. */
    // book_t   *books;      /* unsorted λίστα όλων των books (ευκολία αναζήτησης) — προαιρετικό */
 } library_t;
 
@@ -187,4 +215,13 @@ void PreOrder(BookIndex *root);
 void InOrder(BookIndex *root);
 void Visit(BookIndex *book);
 
+/* HEAP FUNCTIONS */
+/*
+   Helper Function
+   Returns the parent of the node.
+   Can and WILL be used for sorting during insert and finding where the book will actually place.
+*/
+int Parent(int index);
+void heap_insert(book_t *book, int size, book_t *heap[]);
+int CalculatePriority(book_t *book1, book_t *book2);
 #endif
