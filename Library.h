@@ -232,4 +232,7 @@ int heapRC(int index);
 void BubbleDown(RecHeap *heap, int index);
 void HeapDelete(book_t *book, RecHeap *heap);
 
+
+BookIndex *findBook(char title[TITLE_MAX]);
+void printRecHeap(RecHeap *heap);
 #endif

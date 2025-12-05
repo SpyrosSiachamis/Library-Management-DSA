@@ -301,11 +301,29 @@ void processEvent(char *data)
     }
     else if (strncmp(data, "F ", 2) == 0)
     {
-        // mplampla
+        char book_title[TITLE_MAX];
+        if (sscanf(data, "F \"%[^\"]\"", book_title) == 1)
+        {
+            BookIndex *bookNode = findBook(book_title);
+            if (!bookNode)
+            {
+                printf("NOT FOUND\n");
+                return;
+            }
+            book_t *book = bookNode->book;
+            printf("Book %d \"%s\" avg=%d\n", book->bid, book->title, book->avg);
+            return;
+        }
     }
     else if (strncmp(data, "TOP ", 4) == 0)
     {
-        // mplampla
+        int books;
+        if (sscanf(data, "TOP %d", &books) == 1)
+        {
+            RecHeap heap = *library.recommendations;
+            printf("Top Books:\n");
+            
+        }
     }
     else if (strncmp(data, "AM ", 3) == 0)
     {
@@ -343,7 +361,8 @@ void init_library()
     library.members = NULL;
     library.activity = NULL;
     library.recommendations = malloc(sizeof(RecHeap));
-    if (!library.recommendations) exit(1);
+    if (!library.recommendations)
+        exit(1);
     library.recommendations->size = 0;
     library.recommendations->capacity = HEAP_MAX;
     for (int i = 0; i < HEAP_MAX; i++)
@@ -366,17 +385,20 @@ int setSlots(int slots)
 /* Helper Function to create Genre Node */
 genre_t *createGenre(int gid, char name[NAME_MAX])
 {
-    genre_t *genre = (genre_t *)malloc(sizeof(genre_t));
+    genre_t *genre = malloc(sizeof(genre_t));
     if (genre == NULL)
-    {
-        printf("Failure to allocate genre memory\n");
-        printf("G IGNORED\n");
         return NULL;
-    }
 
     genre->gid = gid;
     genre->books = NULL;
     genre->next = NULL;
+    genre->bookIndex = NULL;
+    genre->lost_count = 0;
+    genre->display = NULL;
+    genre->invalid_count = 0;
+    genre->points = 0;
+    genre->slots = 0;
+    genre->remainder = 0;
     strcpy(genre->name, name);
     return genre;
 }
@@ -415,7 +437,6 @@ int insertGenre(library_t *library, genre_t *genreNode)
     if (tmp != NULL && tmp->gid == genreNode->gid || (prev != NULL && prev->gid == genreNode->gid))
     {
         free(genreNode);
-        /* Returns 1 for IGNORED */
         return 1;
     }
 
@@ -472,7 +493,6 @@ loan_t *createLoan(int sid, int bid)
     loan_t *loan = malloc(sizeof(loan_t));
     if (loan == NULL)
     {
-        printf("L IGNORED\n");
         return NULL;
     }
     loan->sid = sid;
@@ -485,9 +505,7 @@ loan_t *createSentinelNode(int sid)
 {
     loan_t *sentinel = malloc(sizeof(loan_t));
     if (sentinel == NULL)
-    {
         return NULL;
-    }
     sentinel->next = NULL;
     sentinel->bid = -1;
     sentinel->sid = sid;
@@ -520,6 +538,7 @@ int insertBook(genre_t *genre, book_t *BookIndex)
         genre->books = BookIndex;
         BookIndex->next = NULL;
         BookIndex->prev = NULL;
+        genre->bookIndex = AVLInsert(genre->bookIndex, BookIndex);
         return 0;
     }
 
@@ -563,7 +582,7 @@ int insertBook(genre_t *genre, book_t *BookIndex)
             current->prev = BookIndex;
         }
     }
-
+    genre->bookIndex = AVLInsert(genre->bookIndex, BookIndex);
     return 0;
 }
 
@@ -739,6 +758,8 @@ int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int 
         book->sum_scores += sc;
         book->n_reviews++;
         book->avg = (book->sum_scores / book->n_reviews); /* Calculate avg review score */
+        heap_insert(book, library.recommendations);
+        printRecHeap(library.recommendations); // τεστ
     }
     else
     {
@@ -1243,23 +1264,27 @@ int Parent(int index)
 {
     return (index - 1) / 2;
 }
+
 /*  Calculates which of the 2 books has priority in the heap
     If 0, no switching books
     If 1, B1 has priority so we switch
 */
-
 int CalculatePriority(book_t *book1, book_t *book2)
 {
     /* B1 has priority */
-    if (book1->avg > book2->avg) return 1;
+    if (book1->avg > book2->avg)
+        return 1;
     /* B2 has priority */
-    else if (book1->avg < book2->avg) return 0;
+    else if (book1->avg < book2->avg)
+        return 0;
     /*b1 and b2 have same avg. B1 has priority */
-    else if (book1->bid < book2->bid) return 1;
+    else if (book1->bid < book2->bid)
+        return 1;
 
     /*b1 and b2 have same avg. B2 has priority */
-    else if (book1->bid > book2->bid) return 0;
-    
+    else if (book1->bid > book2->bid)
+        return 0;
+
     return 0;
 }
 
@@ -1283,10 +1308,48 @@ void BubbleUp(RecHeap *heap, int index)
     heap->heap[index]->heap_pos = index;
 }
 
+void BubbleDown(RecHeap *heap, int index)
+{
+    int left = heapLC(index);
+    int right = heapRC(index);
+    int size = heap->size;
+    int largest = index;
+    
+    /* if left child exists and has bigger priority, switch largest with LC */
+    if(left < size && CalculatePriority(heap->heap[left], heap->heap[largest]))
+    {
+        largest = left;
+    }
+
+    /* if right child exists and has bigger priority, switch largest with RC */
+    if(right < size && CalculatePriority(heap->heap[right], heap->heap[largest]))
+    {
+        largest = right;
+    }
+
+    /* If largest is not index, a child thats larger was found and we swap positions */
+    if (largest != index)
+    {
+        book_t *tmp = heap->heap[index];
+
+        heap->heap[index] = heap->heap[largest];
+
+        /* Update book with less priority heap pos */
+        heap->heap[index]->heap_pos = index;
+
+        heap->heap[largest] = tmp;
+        heap->heap[largest]->heap_pos = largest;
+        /* Move index to the parent */
+        BubbleDown(heap, largest);
+    }
+}
+
 void heap_insert(book_t *book, RecHeap *heap)
 {
-    if(!heap) return;
-    if (heap->size == HEAP_MAX) return;
+    if (!heap)
+        return;
+    if (heap->size == HEAP_MAX)
+        return;
     int NewBookIndex = heap->size;
     heap->heap[NewBookIndex] = book;
     heap->size++;
@@ -1296,64 +1359,95 @@ void heap_insert(book_t *book, RecHeap *heap)
 
 int heapLC(int index)
 {
-    return (2*index + 1);
+    return (2 * index + 1);
 }
 
 int heapRC(int index)
 {
-    return (2*index + 2);
-}
-
-void BubbleDown(RecHeap *heap, int index)
-{
-    while (index > 0 && CalculatePriority(heap->heap[Parent(index)] , heap->heap[index]))
-    {
-        /* Swap new book with it's parent */
-        book_t *tmp = heap->heap[Parent(index)];
-
-        heap->heap[Parent(index)]= heap->heap[index];
-
-        /* Update book with less priority heap pos */
-        heap->heap[Parent(index)]->heap_pos = index;
-
-        heap->heap[index] = tmp;
-        /* Move index to the parent */
-        index = Parent(index);
-    }
-    /* update book heap_pos field*/
-    heap->heap[Parent(index)]->heap_pos = index;
+    return (2 * index + 2);
 }
 
 void HeapDelete(book_t *book, RecHeap *heap)
 {
-    if (!heap || !book || heap->size == 0 || book->heap_pos == -1) return;
+    if (!heap || !book || heap->size == 0 || book->heap_pos == -1)
+        return;
     int index = book->heap_pos;
-    int lastIndex = heap->size - 1;
+    int last = heap->size - 1;
 
-    if (index == lastIndex) {
+    if (index == last)
+    {
         heap->heap[index] = NULL;
         heap->size--;
         book->heap_pos = -1;
         return;
     }
 
-    book_t *replacement = heap->heap[lastIndex];
+    book_t *replacement = heap->heap[last];
     heap->heap[index] = replacement;
-    heap->heap[lastIndex] = NULL;
+    heap->heap[last] = NULL;
     heap->size--;
 
     replacement->heap_pos = index;
     book->heap_pos = -1;
     int parent = Parent(index);
 
-    if (index > 0 && CalculatePriority(heap->heap[index], heap->heap[parent])) {
-        while (index > 0 && CalculatePriority(heap->heap[index], heap->heap[Parent(index)])) {
-             // Swap logic (ίδιο με το insert)...
-             // Μην ξεχάσεις να ενημερώνεις τα heap_pos!
-        }
+    if (index > 0 && CalculatePriority(heap->heap[index], heap->heap[parent]))
+    {
+        BubbleUp(heap, index);
     }
-    else {
-        // HeapDelete(); 
+    else
+    {
+        BubbleDown(heap, index);
+    }
+}
+
+BookIndex *findBook(char title[TITLE_MAX])
+{
+    genre_t *bookGenre = library.genres;
+    BookIndex *book = NULL;
+    while (bookGenre != NULL)
+    {
+        book = AVLLookUp(title, bookGenre->bookIndex);
+        if ((book != NULL) && (strcmp(title, book->title) == 0))
+        {
+            return book;
+        }
+        bookGenre = bookGenre->next;
+    }
+    return NULL;
+}
+
+/* filepath: main.c */
+ /*
+    Debug helper: prints current contents of the recommendation heap.
+    Shows array index, book id, and avg for every occupied slot.
+ */
+void printRecHeap(RecHeap *heap)
+{
+    if (heap == NULL)
+    {
+        printf("RecHeap: (null)\n");
+        return;
+    }
+
+    printf("RecHeap (size=%d):\n", heap->size);
+    if (heap->size == 0)
+    {
+        printf("(empty)\n");
+        return;
+    }
+
+    for (int i = 0; i < heap->size; i++)
+    {
+        book_t *node = heap->heap[i];
+        if (node != NULL)
+        {
+            printf("[%d] bid=%d avg=%d\n", i, node->bid, node->avg);
+        }
+        else
+        {
+            printf("[%d] (null)\n", i);
+        }
     }
 }
 
