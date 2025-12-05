@@ -151,7 +151,7 @@ typedef struct library
    genre_t *genres;          /* κεφαλή λίστας genres (sorted by gid) */
    member_t *members;        /* διπλά συνδεδεμένη λίστα μελών (sorted by sid) */
    RecHeap *recommendations; /* δείκτης στον σωρό συστάσεων (μέγιστο σωρό). */
-   MemberActivity *activity  /* δείκτης στη λίστα δραστηριότητας μελών. */
+   MemberActivity *activity; /* δείκτης στη λίστα δραστηριότητας μελών. */
    // book_t   *books;      /* unsorted λίστα όλων των books (ευκολία αναζήτησης) — προαιρετικό */
 } library_t;
 
@@ -181,6 +181,7 @@ typedef struct library
 /*
     Function declarations
 */
+void init_library();
 int setSlots(int slots);
 void processEvent(char *data);
 int insertGenre(library_t *library, genre_t *genreNode);
@@ -203,7 +204,7 @@ loan_t *createSentinelNode(int sid);
 void sortBook(genre_t *g, book_t *book);
 
 /* AVL FUNCTIONS */
-BookIndex *MakeNewBookNode(book_t *book);
+BookIndex *MakeNewBookIndex(book_t *book);
 BookIndex *AVLLookUp(char *key, BookIndex *root);
 BookIndex *LeftRotate(BookIndex *x);
 BookIndex *RightRotate(BookIndex *x);
@@ -222,6 +223,13 @@ void Visit(BookIndex *book);
    Can and WILL be used for sorting during insert and finding where the book will actually place.
 */
 int Parent(int index);
-void heap_insert(book_t *book, int size, book_t *heap[]);
+void heap_insert(book_t *book, RecHeap *heap);
 int CalculatePriority(book_t *book1, book_t *book2);
+void BubbleUp(RecHeap *heap, int index);
+void heap_insert(book_t *book, RecHeap *heap);
+int heapLC(int index);
+int heapRC(int index);
+void BubbleDown(RecHeap *heap, int index);
+void HeapDelete(book_t *book, RecHeap *heap);
+
 #endif

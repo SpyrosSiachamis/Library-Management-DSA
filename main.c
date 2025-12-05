@@ -5,7 +5,6 @@
 int SLOTS;
 library_t library;
 
-
 /*
     ----------------------- SOS -----------------------------
     Add an int return to the process event function to assure successfull event,
@@ -24,6 +23,7 @@ int main(int argc, char *argv[])
     else
     {
         printf("LIBRARY MANAGEMENT SYSTEM PROJECT\ncsd5503\n--------------------------\n");
+        init_library();
         FILE *file = fopen(argv[1], "r");
         char line[256];
         if (file == NULL)
@@ -264,7 +264,7 @@ void processEvent(char *data)
         if (sscanf(data, "PG %d", &gid) == 1)
         {
             result = printGenre(&library, gid);
-            
+
             /* printGenre doesnt print DONE on success */
             if (result == 0)
             {
@@ -299,27 +299,27 @@ void processEvent(char *data)
             return;
         }
     }
-    else if(strncmp(data, "F ", 2) == 0)
+    else if (strncmp(data, "F ", 2) == 0)
     {
         // mplampla
     }
-    else if(strncmp(data, "TOP ", 4) == 0)
+    else if (strncmp(data, "TOP ", 4) == 0)
     {
         // mplampla
     }
-    else if(strncmp(data, "AM ", 3) == 0)
+    else if (strncmp(data, "AM ", 3) == 0)
     {
         // mplampla
     }
-    else if(strncmp(data, "U ", 2) == 0)
+    else if (strncmp(data, "U ", 2) == 0)
     {
         // mplampla
     }
-    else if(strncmp(data, "X ", 2) == 0)
+    else if (strncmp(data, "X ", 2) == 0)
     {
         // mplampla
     }
-    else if(strncmp(data, "BF ", 3) == 0)
+    else if (strncmp(data, "BF ", 3) == 0)
     {
         // mplampla
     }
@@ -335,6 +335,23 @@ void processEvent(char *data)
         return;
     }
     printf("IGNORED\n");
+}
+
+void init_library()
+{
+    library.genres = NULL;
+    library.members = NULL;
+    library.activity = NULL;
+    library.recommendations = malloc(sizeof(RecHeap));
+    if (!library.recommendations) exit(1);
+    library.recommendations->size = 0;
+    library.recommendations->capacity = HEAP_MAX;
+    for (int i = 0; i < HEAP_MAX; i++)
+    {
+        library.recommendations->heap[i] = NULL;
+    }
+
+    SLOTS = 0;
 }
 
 /*
@@ -415,11 +432,9 @@ int insertGenre(library_t *library, genre_t *genreNode)
 /* Helper Function to create Book Node */
 book_t *createBook(int gid, int bid, char title[NAME_MAX])
 {
-    book_t *book = (book_t *)malloc(sizeof(book_t));
+    book_t *book = malloc(sizeof(book_t));
     if (book == NULL)
     {
-        printf("Failure to allocate book memory\n");
-        printf("BK IGNORED\n");
         return NULL;
     }
 
@@ -432,6 +447,7 @@ book_t *createBook(int gid, int bid, char title[NAME_MAX])
     book->n_reviews = 0;
     book->avg = 0;
     book->sum_scores = 0;
+    book->heap_pos = -1;
     strcpy(book->title, title);
     return book;
 }
@@ -439,7 +455,7 @@ book_t *createBook(int gid, int bid, char title[NAME_MAX])
 /* Helper Function to create Member Node */
 member_t *createMember(int sid, char name[NAME_MAX])
 {
-    member_t *memberNode = (member_t *)malloc(sizeof(member_t));
+    member_t *memberNode = malloc(sizeof(member_t));
     if (memberNode == NULL)
     {
         return NULL;
@@ -453,7 +469,7 @@ member_t *createMember(int sid, char name[NAME_MAX])
 
 loan_t *createLoan(int sid, int bid)
 {
-    loan_t *loan = (loan_t *)malloc(sizeof(loan_t));
+    loan_t *loan = malloc(sizeof(loan_t));
     if (loan == NULL)
     {
         printf("L IGNORED\n");
@@ -467,10 +483,9 @@ loan_t *createLoan(int sid, int bid)
 /* Helper Function to create sentinel node for linked lists that use it */
 loan_t *createSentinelNode(int sid)
 {
-    loan_t *sentinel = (loan_t *)malloc(sizeof(loan_t));
+    loan_t *sentinel = malloc(sizeof(loan_t));
     if (sentinel == NULL)
     {
-        printf("L IGNORED\n");
         return NULL;
     }
     sentinel->next = NULL;
@@ -881,10 +896,10 @@ int allocateSlots()
     tmp = library.genres;
     while (tmp != NULL)
     {
-          if (QUOTA > 0)
-          {
-             /* Allocate seats */
-             {
+        if (QUOTA > 0)
+        {
+            /* Allocate seats */
+            {
                 int pts = tmp->points;
                 int g_seats = seats(tmp, pts, QUOTA);
                 tmp->slots = g_seats;
@@ -961,9 +976,9 @@ int allocateSlots()
                 if (book->lost_flag == 0)
                 {
                     /* Save pointer to the book */
-                    *curr_disp = book; 
+                    *curr_disp = book;
                     /* Move pointer ahead */
-                    curr_disp++;       
+                    curr_disp++;
                     /* Decrease seats left */
                     seats_left--;
                 }
@@ -1006,7 +1021,7 @@ int points(genre_t *g)
 /* Calculate genre seats */
 int seats(genre_t *g, int points, int quota)
 {
-    if (quota == 0) 
+    if (quota == 0)
     {
         return 0;
     }
@@ -1030,7 +1045,7 @@ void printDisplayedBooks()
 {
     printf("Display\n");
     genre_t *tmp = library.genres;
-    
+
     /* Check if any genres exist or if the library has any slots available */
     if (tmp == NULL || SLOTS == 0)
     {
@@ -1048,7 +1063,7 @@ void printDisplayedBooks()
             /* At least one display exists */
             display_exists = 1;
             printf("%d:\n", tmp->gid);
-            
+
             /* Print displayed books */
             int seats_left = tmp->slots;
             book_t **display_tmp = tmp->display;
@@ -1076,71 +1091,80 @@ void printDisplayedBooks()
 }
 
 /* Function that creates a new BookIndex node for the AVL tree */
-BookIndex* MakeNewBookIndex(book_t *book)
+BookIndex *MakeNewBookIndex(book_t *book)
 {
-    BookIndex* node = malloc(sizeof(BookIndex));
-    if(!node) return NULL;
-    strcpy(node->title,book->title);
+    BookIndex *node = malloc(sizeof(BookIndex));
+    if (!node)
+        return NULL;
+    strcpy(node->title, book->title);
     node->book = book;
-    node->height =  1;
+    node->height = 1;
     node->rc = node->lc = NULL;
     return node;
 }
 
-BookIndex *AVLLookUp(char* key, BookIndex *book)
+BookIndex *AVLLookUp(char *key, BookIndex *book)
 {
-    if (!book) return NULL;
-    if (strcmp(key,book->title) == 0) return book;
-    if (strcmp(key,book->title) < 0) return AVLLookUp(key, book->lc);
+    if (!book)
+        return NULL;
+    if (strcmp(key, book->title) == 0)
+        return book;
+    if (strcmp(key, book->title) < 0)
+        return AVLLookUp(key, book->lc);
     return AVLLookUp(key, book->rc);
 }
 
-BookIndex* LeftRotate(BookIndex* x)
+BookIndex *LeftRotate(BookIndex *x)
 {
-    BookIndex* rightChild = x->rc;
-    BookIndex* LeftChildR = rightChild->lc; /* Left Child of rightChild of x */
+    BookIndex *rightChild = x->rc;
+    BookIndex *LeftChildR = rightChild->lc; /* Left Child of rightChild of x */
 
     /* Rotation */
     rightChild->lc = x; /* Set left child of right child of x x itself. */
     x->rc = LeftChildR; /* set the left child of the right child of righChild of x as leftchild of x */
 
     x->height = max_height(height(x->lc), height(x->rc)) + 1;
-    
+
     /* New root of subtree */
     rightChild->height = max_height(height(rightChild->lc), height(rightChild->rc)) + 1;
 
     return rightChild;
 }
 
-BookIndex* RightRotate(BookIndex* x)
+BookIndex *RightRotate(BookIndex *x)
 {
-    BookIndex* leftChild = x->lc;
-    BookIndex* rightChildL = leftChild->rc; /* Right child of leftChild of x */
+    BookIndex *leftChild = x->lc;
+    BookIndex *rightChildL = leftChild->rc; /* Right child of leftChild of x */
 
     /* Rotation */
-    leftChild->rc = x; /* Pivot leftChild so its right child becomes x */
+    leftChild->rc = x;   /* Pivot leftChild so its right child becomes x */
     x->lc = rightChildL; /* Move right child of leftChild to left subtree of x */
 
     x->height = max_height(height(x->lc), height(x->rc)) + 1;
-    
+
     /* New root of subtree */
     leftChild->height = max_height(height(leftChild->lc), height(leftChild->rc)) + 1;
 
     return leftChild;
 }
 
-BookIndex* AVLInsert(BookIndex* root, book_t *book)
+BookIndex *AVLInsert(BookIndex *root, book_t *book)
 {
-    if(!root) return MakeNewBookNode(book); /* If we arrived to end of subtree, add as new leaf */
-    if(strcmp(book->title, root->title) < 0) root->lc = AVLInsert(root->lc, book); /* If title is lexicographically smaller than the root title, go left */
-    else if (strcmp(book->title, root->title) > 0) root->rc = AVLInsert(root->rc, book);/* If title is lexicographically smaller than the root title, go right */
-    else return root; /* Don't insert duplicate title */
+
+    if (!root)
+        return MakeNewBookIndex(book); /* If we arrived to end of subtree, add as new leaf */
+    if (strcmp(book->title, root->title) < 0)
+        root->lc = AVLInsert(root->lc, book); /* If title is lexicographically smaller than the root title, go left */
+    else if (strcmp(book->title, root->title) > 0)
+        root->rc = AVLInsert(root->rc, book); /* If title is lexicographically smaller than the root title, go right */
+    else
+        return root; /* Don't insert duplicate title */
 
     /* Calculate height of current node */
     root->height = 1 + (max_height(height(root->lc), height(root->rc))); /* Add largest height from left and right child and then add + 1 for current node */
 
     int balance = get_balance(root);
-    
+
     /* LL */
     if (balance > 1 && (strcmp(book->title, root->lc->title) < 0))
     {
@@ -1148,20 +1172,20 @@ BookIndex* AVLInsert(BookIndex* root, book_t *book)
     }
 
     /* RR */
-    else if(balance < -1 && (strcmp(book->title, root->rc->title) > 0))
+    else if (balance < -1 && (strcmp(book->title, root->rc->title) > 0))
     {
         return LeftRotate(root);
     }
 
     /* LR */
-    else if(balance > 1 && (strcmp(book->title, root->lc->title) > 0))
+    else if (balance > 1 && (strcmp(book->title, root->lc->title) > 0))
     {
         root->lc = LeftRotate(root->lc);
         return RightRotate(root);
     }
 
     /* RL */
-    else if(balance < -1 && (strcmp(book->title, root->rc->title) < 0))
+    else if (balance < -1 && (strcmp(book->title, root->rc->title) < 0))
     {
         root->rc = RightRotate(root->rc);
         return LeftRotate(root);
@@ -1169,26 +1193,32 @@ BookIndex* AVLInsert(BookIndex* root, book_t *book)
     return root;
 }
 
-int height(BookIndex* n)
+int height(BookIndex *n)
 {
-    if (!n) return 0;
+    if (!n)
+        return 0;
     return n->height;
 }
 
 int max_height(int x, int y)
 {
-    if (x>y) return x;
-    else return y;
+    if (x > y)
+        return x;
+    else
+        return y;
 }
 
-int get_balance(BookIndex *n) {
-    if (!n) return 0;
+int get_balance(BookIndex *n)
+{
+    if (!n)
+        return 0;
     return height(n->lc) - height(n->rc);
 }
 
 void PreOrder(BookIndex *root)
 {
-    if (!root) return;
+    if (!root)
+        return;
     Visit(root);
     PreOrder(root->lc);
     PreOrder(root->rc);
@@ -1211,38 +1241,119 @@ void Visit(BookIndex *book)
 /* HEAP */
 int Parent(int index)
 {
-   return (index - 1) / 2;
+    return (index - 1) / 2;
 }
-
-void heap_insert(book_t *book, int size, book_t *heap[])
-{
-    if (size == HEAP_MAX) return heap;
-    int NewBookIndex = size;
-    int key = book->avg;
-    int key2 = book->bid;
-
-    heap[size] = book;
-    NewBookIndex = Parent(NewBookIndex);
-
-    while (NewBookIndex > 0)
-    {
-        int ParentIndex = Parent(NewBookIndex);
-    }
-}
-
-/*  Calculates which of the 2 books has priority in the heap 
+/*  Calculates which of the 2 books has priority in the heap
     If 0, no switching books
     If 1, B1 has priority so we switch
 */
+
 int CalculatePriority(book_t *book1, book_t *book2)
 {
-    /*b1 and b2 have same avg. B1 has priority */
-    if (book1->avg == book2->avg && book1->bid < book2->bid) return 1;
-    /*b1 and b2 have same avg. B2 has priority */
-    else if (book1->avg == book2->avg && book1->bid > book2->bid) return 0;
     /* B1 has priority */
-    else if(book1->avg > book2->avg) return 1;
+    if (book1->avg > book2->avg) return 1;
     /* B2 has priority */
-    else if(book1->avg < book2->avg) return 0;
+    else if (book1->avg < book2->avg) return 0;
+    /*b1 and b2 have same avg. B1 has priority */
+    else if (book1->bid < book2->bid) return 1;
+
+    /*b1 and b2 have same avg. B2 has priority */
+    else if (book1->bid > book2->bid) return 0;
+    
     return 0;
 }
+
+void BubbleUp(RecHeap *heap, int index)
+{
+    while (index > 0 && CalculatePriority(heap->heap[index], heap->heap[Parent(index)]))
+    {
+        /* Swap new book with it's parent */
+        book_t *tmp = heap->heap[index];
+
+        heap->heap[index] = heap->heap[Parent(index)];
+
+        /* Update book with less priority heap pos */
+        heap->heap[index]->heap_pos = index;
+
+        heap->heap[Parent(index)] = tmp;
+        /* Move index to the parent */
+        index = Parent(index);
+    }
+    /* update book heap_pos field*/
+    heap->heap[index]->heap_pos = index;
+}
+
+void heap_insert(book_t *book, RecHeap *heap)
+{
+    if(!heap) return;
+    if (heap->size == HEAP_MAX) return;
+    int NewBookIndex = heap->size;
+    heap->heap[NewBookIndex] = book;
+    heap->size++;
+    /* Bubble up from  last position in array while the index is > 0 and the new book has priority */
+    BubbleUp(heap, NewBookIndex);
+}
+
+int heapLC(int index)
+{
+    return (2*index + 1);
+}
+
+int heapRC(int index)
+{
+    return (2*index + 2);
+}
+
+void BubbleDown(RecHeap *heap, int index)
+{
+    while (index > 0 && CalculatePriority(heap->heap[Parent(index)] , heap->heap[index]))
+    {
+        /* Swap new book with it's parent */
+        book_t *tmp = heap->heap[Parent(index)];
+
+        heap->heap[Parent(index)]= heap->heap[index];
+
+        /* Update book with less priority heap pos */
+        heap->heap[Parent(index)]->heap_pos = index;
+
+        heap->heap[index] = tmp;
+        /* Move index to the parent */
+        index = Parent(index);
+    }
+    /* update book heap_pos field*/
+    heap->heap[Parent(index)]->heap_pos = index;
+}
+
+void HeapDelete(book_t *book, RecHeap *heap)
+{
+    if (!heap || !book || heap->size == 0 || book->heap_pos == -1) return;
+    int index = book->heap_pos;
+    int lastIndex = heap->size - 1;
+
+    if (index == lastIndex) {
+        heap->heap[index] = NULL;
+        heap->size--;
+        book->heap_pos = -1;
+        return;
+    }
+
+    book_t *replacement = heap->heap[lastIndex];
+    heap->heap[index] = replacement;
+    heap->heap[lastIndex] = NULL;
+    heap->size--;
+
+    replacement->heap_pos = index;
+    book->heap_pos = -1;
+    int parent = Parent(index);
+
+    if (index > 0 && CalculatePriority(heap->heap[index], heap->heap[parent])) {
+        while (index > 0 && CalculatePriority(heap->heap[index], heap->heap[Parent(index)])) {
+             // Swap logic (ίδιο με το insert)...
+             // Μην ξεχάσεις να ενημερώνεις τα heap_pos!
+        }
+    }
+    else {
+        // HeapDelete(); 
+    }
+}
+
