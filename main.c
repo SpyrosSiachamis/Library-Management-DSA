@@ -319,12 +319,22 @@ void processEvent(char *data)
             return;
         }
     }
-    else if (strncmp(data, "TOP ", 4) == 0)
+    else if (strncmp(data, "TOP", 3) == 0)
     {
         int books;
         if (sscanf(data, "TOP %d", &books) == 1)
         {
+            if (books <= 0)
+            {
+                printf("IGNORED\n");
+                return;
+            }
             /* copy of heap, so we dont destroy the original */
+            if (library.recommendations == NULL || library.recommendations->size == 0)
+            {
+                printf("Top Books:\n");
+                return;
+            }
             RecHeap heap = *library.recommendations;
             if (books > heap.size)
             {
@@ -339,13 +349,14 @@ void processEvent(char *data)
                     printf("%d \"%s\" avg=%d\n", top->bid, top->title, top->avg);
                 }
             }
+            return;
         }
-        return;
     }
     else if (strncmp(data, "AM ", 3) == 0)
     {
         printf("Active Members:\n");
-        if (!library.activity) return;
+        if (!library.activity)
+            return;
         MemberActivity *tmp = library.activity;
         while (tmp != NULL)
         {
@@ -822,7 +833,7 @@ int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int 
         book->sum_scores += sc;
         book->n_reviews++;
         member->activity->reviews_count++; /* increment review count */
-        member->activity->score_sum+=sc;
+        member->activity->score_sum += sc;
         book->avg = (book->sum_scores / book->n_reviews); /* Calculate avg review score */
         heap_insert(book, library.recommendations);
     }
@@ -1563,6 +1574,29 @@ book_t *HeapMax(RecHeap *heap)
     heap->size--;
     BubbleDownMax(heap, 0);
     return max;
+}
+/* Compares both members activity. If equal returns based on sid */
+int CompareActivity(MemberActivity *member1, MemberActivity *member2)
+{
+    int score1 = member1->loans_count + member1->reviews_count;
+    int score2 = member2->loans_count + member2->reviews_count;
+    if(score1 > score2) return 0;
+    else if(score1 < score2) return 1;
+    else
+    {
+        if (member1->sid > member2->sid) return 0;
+        else return 1;
+    }
+}
+
+void sortMemberActivity(MemberActivity *Activity[], int n)
+{
+    for (int i = 0; i < n-1; i++)
+    {
+        int BestIndex = i;
+        
+    }
+    
 }
 
 /* filepath: main.c */
