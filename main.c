@@ -253,6 +253,10 @@ void processEvent(char *data)
                     if (result == 0 && found_book == 1)
                     {
                         sortBook(found_genre, book_curr);
+                        if (lost_flag == 1)
+                        {
+                            HeapDelete(book_curr, library.recommendations);
+                        }
                     }
                 }
             }
@@ -272,7 +276,7 @@ void processEvent(char *data)
             }
         }
     }
-    else if (strncmp(data, "D ", 1) == 0)
+    else if (strncmp(data, "D ", 2) == 0)
     {
         result = allocateSlots();
     }
@@ -320,14 +324,35 @@ void processEvent(char *data)
         int books;
         if (sscanf(data, "TOP %d", &books) == 1)
         {
+            /* copy of heap, so we dont destroy the original */
             RecHeap heap = *library.recommendations;
+            if (books > heap.size)
+            {
+                books = heap.size;
+            }
             printf("Top Books:\n");
-            
+            for (int i = 0; i < books; i++)
+            {
+                book_t *top = HeapMax(&heap);
+                if (top)
+                {
+                    printf("%d \"%s\" avg=%d\n", top->bid, top->title, top->avg);
+                }
+            }
         }
+        return;
     }
     else if (strncmp(data, "AM ", 3) == 0)
     {
-        // mplampla
+        printf("Active Members:\n");
+        if (!library.activity) return;
+        MemberActivity *tmp = library.activity;
+        while (tmp != NULL)
+        {
+            printf("%d %s loans=%d reviews=%d\n", tmp->sid, tmp->Name, tmp->loans_count, tmp->reviews_count);
+            tmp = tmp->next;
+        }
+        return;
     }
     else if (strncmp(data, "U ", 2) == 0)
     {
@@ -485,7 +510,23 @@ member_t *createMember(int sid, char name[NAME_MAX])
     memberNode->next = NULL;
     memberNode->sid = sid;
     strcpy(memberNode->name, name);
+    MemberActivity *Activity = createNewActivity(memberNode);
+    memberNode->activity = Activity;
     return memberNode;
+}
+
+MemberActivity *createNewActivity(member_t *member)
+{
+    MemberActivity *Activity = malloc(sizeof(MemberActivity));
+    if (!Activity)
+        return NULL;
+    Activity->loans_count = 0;
+    Activity->reviews_count = 0;
+    Activity->score_sum = 0;
+    strcpy(Activity->Name, member->name);
+    Activity->sid = member->sid;
+    Activity->next = NULL;
+    return Activity;
 }
 
 loan_t *createLoan(int sid, int bid)
@@ -603,6 +644,12 @@ int insertMember(library_t *library, member_t *member)
     if (library->members == NULL)
     {
         library->members = member;
+        /* link activity to MemberActivity List */
+        if (member->activity != NULL)
+        {
+            member->activity->next = library->activity;
+            library->activity = member->activity;
+        }
         return 0;
     }
     /* If list is not NULL and member sid < head sid, make genreNode head of the list */
@@ -610,6 +657,12 @@ int insertMember(library_t *library, member_t *member)
     {
         member->next = current;
         library->members = member;
+        /* link activity to MemberActivity List */
+        if (member->activity != NULL)
+        {
+            member->activity->next = library->activity;
+            library->activity = member->activity;
+        }
         return 0;
     }
 
@@ -623,6 +676,10 @@ int insertMember(library_t *library, member_t *member)
     /* Check last member node to ensure no duplicates*/
     if (current != NULL && current->sid == member->sid)
     {
+        if (member->activity != NULL)
+        {
+            free(member->activity);
+        }
         free(member);
         return 1;
     }
@@ -632,6 +689,12 @@ int insertMember(library_t *library, member_t *member)
     if (prev != NULL)
     {
         prev->next = member;
+    }
+    /* link activity to MemberActivity List */
+    if (member->activity != NULL)
+    {
+        member->activity->next = library->activity;
+        library->activity = member->activity;
     }
     return 0;
 }
@@ -666,6 +729,7 @@ int insertLoan(member_t *member, loan_t *loan)
     /* Insert at head */
     loan->next = member->loans;
     member->loans = loan;
+    member->activity->loans_count++;
     return 0;
 }
 
@@ -757,9 +821,10 @@ int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int 
     {
         book->sum_scores += sc;
         book->n_reviews++;
+        member->activity->reviews_count++; /* increment review count */
+        member->activity->score_sum+=sc;
         book->avg = (book->sum_scores / book->n_reviews); /* Calculate avg review score */
         heap_insert(book, library.recommendations);
-        printRecHeap(library.recommendations); // τεστ
     }
     else
     {
@@ -1314,15 +1379,15 @@ void BubbleDown(RecHeap *heap, int index)
     int right = heapRC(index);
     int size = heap->size;
     int largest = index;
-    
+
     /* if left child exists and has bigger priority, switch largest with LC */
-    if(left < size && CalculatePriority(heap->heap[left], heap->heap[largest]))
+    if (left < size && CalculatePriority(heap->heap[left], heap->heap[largest]))
     {
         largest = left;
     }
 
     /* if right child exists and has bigger priority, switch largest with RC */
-    if(right < size && CalculatePriority(heap->heap[right], heap->heap[largest]))
+    if (right < size && CalculatePriority(heap->heap[right], heap->heap[largest]))
     {
         largest = right;
     }
@@ -1346,14 +1411,58 @@ void BubbleDown(RecHeap *heap, int index)
 
 void heap_insert(book_t *book, RecHeap *heap)
 {
-    if (!heap)
+    if (!heap || !book)
         return;
+    /* If book is already in heap, just update its position based on the avg */
+    if (book->heap_pos != -1)
+    {
+        int index = book->heap_pos;
+        int parent = Parent(index);
+        if (index > 0 && CalculatePriority(heap->heap[index], heap->heap[parent]))
+        {
+            BubbleUp(heap, index);
+        }
+        else
+        {
+            BubbleDown(heap, index);
+        }
+        return;
+    }
+
+    /* If heap is full, find first child and then iterate through the children to find the smallest priority to replace with the newer one if its a higher priority */
     if (heap->size == HEAP_MAX)
+    {
+        /* use first leaf as starting minimum */
+        int min = heap->size / 2;
+        /* compare first leaf with every leaf right after it */
+        for (int i = (heap->size / 2) + 1; i < heap->size; i++)
+        {
+            if (heap->heap[i]->avg < heap->heap[min]->avg)
+            {
+                min = i;
+            }
+            else if (heap->heap[i]->avg == heap->heap[min]->avg && heap->heap[i]->bid > heap->heap[min]->bid)
+            {
+                min = i;
+            }
+        }
+        /* if new book avg is greater than smallest avg in heap, replace it and then bubble up if the new book has a better rating than it's new parent */
+        if (CalculatePriority(book, heap->heap[min]))
+        {
+            heap->heap[min]->heap_pos = -1;
+            heap->heap[min] = book;
+            book->heap_pos = min;
+            BubbleUp(heap, min);
+        }
         return;
+    }
+
+    /* insert book into heap if it isnt full */
     int NewBookIndex = heap->size;
     heap->heap[NewBookIndex] = book;
     heap->size++;
-    /* Bubble up from  last position in array while the index is > 0 and the new book has priority */
+
+    /* Bubble up from last position in array while the index is > 0 and the new book has priority */
     BubbleUp(heap, NewBookIndex);
 }
 
@@ -1417,11 +1526,50 @@ BookIndex *findBook(char title[TITLE_MAX])
     return NULL;
 }
 
+void BubbleDownMax(RecHeap *heap, int index)
+{
+    int left = heapLC(index);
+    int right = heapRC(index);
+    int size = heap->size;
+    int largest = index;
+
+    if (left < size && CalculatePriority(heap->heap[left], heap->heap[largest]))
+    {
+        largest = left;
+    }
+
+    if (right < size && CalculatePriority(heap->heap[right], heap->heap[largest]))
+    {
+        largest = right;
+    }
+
+    if (largest != index)
+    {
+
+        book_t *tmp = heap->heap[index];
+        heap->heap[index] = heap->heap[largest];
+        heap->heap[largest] = tmp;
+        BubbleDownMax(heap, largest);
+    }
+}
+
+book_t *HeapMax(RecHeap *heap)
+{
+    if (!heap || heap->size == 0)
+        return NULL;
+    book_t *max = heap->heap[0];
+    book_t *last = heap->heap[heap->size - 1];
+    heap->heap[0] = last;
+    heap->size--;
+    BubbleDownMax(heap, 0);
+    return max;
+}
+
 /* filepath: main.c */
- /*
-    Debug helper: prints current contents of the recommendation heap.
-    Shows array index, book id, and avg for every occupied slot.
- */
+/*
+   Debug helper: prints current contents of the recommendation heap.
+   Shows array index, book id, and avg for every occupied slot.
+*/
 void printRecHeap(RecHeap *heap)
 {
     if (heap == NULL)
@@ -1450,4 +1598,3 @@ void printRecHeap(RecHeap *heap)
         }
     }
 }
-

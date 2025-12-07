@@ -80,6 +80,7 @@ typedef struct MemberActivity
    int loans_count;
    int reviews_count;
    int score_sum;
+   char Name[NAME_MAX];
    struct MemberActivity *next;
 } MemberActivity;
 
@@ -186,7 +187,10 @@ int setSlots(int slots);
 void processEvent(char *data);
 int insertGenre(library_t *library, genre_t *genreNode);
 int insertBook(genre_t *genre, book_t *book);
+
 int insertMember(library_t *library, member_t *member);
+MemberActivity *createNewActivity(member_t *member);
+
 int printGenre(library_t *library, int gid);
 int insertLoan(member_t *member, loan_t *loan);
 int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int status);
@@ -231,7 +235,7 @@ int heapLC(int index);
 int heapRC(int index);
 void BubbleDown(RecHeap *heap, int index);
 void HeapDelete(book_t *book, RecHeap *heap);
-
+book_t *HeapMax(RecHeap *heap);
 
 BookIndex *findBook(char title[TITLE_MAX]);
 void printRecHeap(RecHeap *heap);

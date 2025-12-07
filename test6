@@ -1,11 +1,19 @@
-# Expect PD to print Display and (Empty)
-S 2
+S 5
 G 10 "Computer Science"
-G 20 "Mathematics"
+G 20 "History"
 BK 101 10 "Data Structures"
-BK 112 10 "Operating Systems"
-BK 102 20 "Calculus"
-BK 103 10 "Algorithms"
-BK 104 20 "Linear Algebra"
-M 1001 "Alex"
-PG 20
+BK 102 10 "Operating Systems"
+BK 201 20 "Modern History"
+
+M 1001 "Maria"
+M 1002 "Nikos"
+
+# Δανεισμοί & έγκυρες επιστροφές
+L 1001 101
+L 1002 201
+R 1001 101 8 ok
+R 1002 201 9 ok
+TOP 5
+
+F "Data Structures"
+AM 
