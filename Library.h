@@ -154,6 +154,7 @@ typedef struct library
    RecHeap *recommendations; /* δείκτης στον σωρό συστάσεων (μέγιστο σωρό). */
    MemberActivity *activity; /* δείκτης στη λίστα δραστηριότητας μελών. */
    // book_t   *books;      /* unsorted λίστα όλων των books (ευκολία αναζήτησης) — προαιρετικό */
+   int bookCount;            /* συνολικός αριθμός βιβλίων */
 } library_t;
 
 /* =========================

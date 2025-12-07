@@ -103,6 +103,10 @@ void processEvent(char *data)
                     {
                         found = 1;
                         result = insertBook(genre, BookIndex);
+                        if (result == 0)
+                        {
+                            library.bookCount++;
+                        }
                         break;
                     }
                     genre = genre->next;
@@ -241,6 +245,7 @@ void processEvent(char *data)
                                 /* If book is found, return loan */
                                 found_genre = g_curr; /* save containing genre */
                                 result = returnLoan(member, g_curr, book_curr, score, lost_flag);
+                                
                                 found_book = 1;
                                 break;
                             }
@@ -414,9 +419,29 @@ void processEvent(char *data)
             }
         }
     }
-    else if (strncmp(data, "X ", 2) == 0)
+    else if (strncmp(data, "X", 1) == 0)
     {
-        // mplampla
+        int totalSum = 0;
+        int members = 0;
+        int loan_count = 0;
+        int review_count = 0;
+        printf("Stats:\n");
+        MemberActivity *Activity = library.activity;
+        while(Activity)
+        {
+            totalSum += Activity->score_sum;
+            loan_count += Activity->loans_count;
+            review_count += Activity->reviews_count;
+            members++;
+            Activity = Activity->next;
+        }
+        double avg = 0.0;
+        if (review_count)
+        {
+            avg = (totalSum / (float)review_count);
+        }
+        printf("Amount of Books: %d\nAmount of Members: %d\nAmount of Active Loans: %d\nAverage score of all books: %.2f\n",library.bookCount, members, loan_count, avg);
+        return;
     }
     else if (strncmp(data, "BF ", 3) == 0)
     {
@@ -442,15 +467,14 @@ void init_library()
     library.members = NULL;
     library.activity = NULL;
     library.recommendations = malloc(sizeof(RecHeap));
-    if (!library.recommendations)
-        exit(1);
+    if (!library.recommendations) exit(1);
     library.recommendations->size = 0;
     library.recommendations->capacity = HEAP_MAX;
     for (int i = 0; i < HEAP_MAX; i++)
     {
         library.recommendations->heap[i] = NULL;
     }
-
+    library.bookCount = 0;
     SLOTS = 0;
 }
 
@@ -779,6 +803,7 @@ int insertLoan(member_t *member, loan_t *loan)
         }
         loan->next = sentinel;
         member->loans = loan;
+        member->activity->loans_count++;
         return 0;
     }
 
@@ -905,6 +930,7 @@ int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int 
     {
         prev->next = curr->next;
     }
+    member->activity->loans_count--;
     /* Free the deleted loan node */
     free(curr);
     return 0;
@@ -1687,12 +1713,12 @@ int CompareActivity(MemberActivity *member1, MemberActivity *member2)
 {
     int score1 = member1->loans_count + member1->reviews_count;
     int score2 = member2->loans_count + member2->reviews_count;
-    if(score1 > score2) return 0;
-    else if(score1 < score2) return 1;
+    if(score1 > score2) return 1;
+    else if(score1 < score2) return 0;
     else
     {
-        if (member1->sid > member2->sid) return 0;
-        else return 1;
+        if (member1->sid < member2->sid) return 1;
+        else return 0;
     }
 }
 /* Helper function to sort member activity for TOP printing */
@@ -1703,7 +1729,7 @@ void sortMemberActivity(MemberActivity *Activity[], int n)
         int BestIndex = i;
         for (int j = i+1; j < n; j++)
         {
-            if (CompareActivity(Activity[j], Activity[BestIndex]) == 0)
+            if (CompareActivity(Activity[j], Activity[BestIndex]))
             {
                 BestIndex = j;
             }
@@ -1716,6 +1742,7 @@ void sortMemberActivity(MemberActivity *Activity[], int n)
         }        
     }
 }
+
 
 /* filepath: main.c */
 /*
