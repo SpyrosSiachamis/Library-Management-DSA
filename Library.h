@@ -237,7 +237,9 @@ void BubbleDown(RecHeap *heap, int index);
 void HeapDelete(book_t *book, RecHeap *heap);
 book_t *HeapMax(RecHeap *heap);
 
-
+book_t *findBookID(int bid);
+genre_t *findBookGenre(int gid);
+void rebuildGenreAVL(genre_t *genre);
 int CompareActivity(MemberActivity *member1, MemberActivity *member2);
 void sortMemberActivity(MemberActivity *Activity[], int n);
 BookIndex *findBook(char title[TITLE_MAX]);

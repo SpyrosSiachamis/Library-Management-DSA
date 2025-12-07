@@ -11,9 +11,13 @@ M 1002 "Nikos"
 # Δανεισμοί & έγκυρες επιστροφές
 L 1001 101
 L 1002 201
+L 1002 102
 R 1001 101 8 ok
 R 1002 201 9 ok
 TOP 5
 
 F "Data Structures"
 AM 
+U 101 "Java - Object-Oriented Programming in a nutshell"
+F "Data Structures"
+F "Java - Object-Oriented Programming in a nutshell"

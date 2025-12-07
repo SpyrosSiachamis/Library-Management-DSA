@@ -352,22 +352,67 @@ void processEvent(char *data)
             return;
         }
     }
-    else if (strncmp(data, "AM ", 3) == 0)
+    else if (strncmp(data, "AM" , 2) == 0)
     {
-        printf("Active Members:\n");
-        if (!library.activity)
-            return;
-        MemberActivity *tmp = library.activity;
-        while (tmp != NULL)
+        int size = 0;
+        MemberActivity *current = library.activity;
+        while (current)
         {
-            printf("%d %s loans=%d reviews=%d\n", tmp->sid, tmp->Name, tmp->loans_count, tmp->reviews_count);
-            tmp = tmp->next;
+            size++;
+            current = current->next;
+        }
+        /* If no active members, print nothing*/
+        if (size == 0)
+        {
+            printf("Active Members:\n");
+            return;
+        }
+        /* Array that holds member activities to use in output */
+        MemberActivity *sorted[size];
+        current = library.activity;
+        int i = 0;
+
+        /* Fill up the array with member activity */
+        while (current && i<size)
+        {
+            sorted[i] = current;
+            current = current->next;
+            i++;
+        }
+        /* Sort the array */
+        sortMemberActivity(sorted, size);
+        printf("Active Members:\n");
+        for (int i = 0; i < size; i++)
+        {
+            printf("%d %s loans=%d reviews=%d\n", sorted[i]->sid, sorted[i]->Name, sorted[i]->loans_count, sorted[i]->reviews_count);
         }
         return;
     }
-    else if (strncmp(data, "U ", 2) == 0)
+    else if (strncmp(data, "U", 1) == 0)
     {
-        // mplampla
+        char newTitle[TITLE_MAX];
+        int bookID;
+        if (sscanf(data, "U %d \"%[^\"]\"", &bookID, newTitle) == 2)
+        {
+            /* Find the books ID*/
+            book_t *book = findBookID(bookID);
+            if (book)
+            {
+                /* If a book exists inside the library with the title already, dont update */
+                BookIndex *duplicateBook = findBook(newTitle);
+                if (!(duplicateBook && duplicateBook->book != book))
+                {
+                    genre_t *bookGenre = findBookGenre(book->gid);
+                    if(bookGenre)
+                    {
+                        /* update books title, then rebuild the AVL */
+                        strcpy(book->title, newTitle);
+                        rebuildGenreAVL(bookGenre);
+                        result = 0;
+                    }
+                }
+            }
+        }
     }
     else if (strncmp(data, "X ", 2) == 0)
     {
@@ -1202,13 +1247,45 @@ BookIndex *MakeNewBookIndex(book_t *book)
 
 BookIndex *AVLLookUp(char *key, BookIndex *book)
 {
-    if (!book)
-        return NULL;
-    if (strcmp(key, book->title) == 0)
-        return book;
-    if (strcmp(key, book->title) < 0)
-        return AVLLookUp(key, book->lc);
+    if (!book) return NULL;
+    if (strcmp(key, book->title) == 0) return book;
+    if (strcmp(key, book->title) < 0) return AVLLookUp(key, book->lc);
     return AVLLookUp(key, book->rc);
+}
+/* Search book list*/
+book_t *findBookID(int bid)
+{
+    genre_t *genre = library.genres;
+    book_t *tmp;
+    while(genre)
+    {
+        tmp = genre->books;
+        while (tmp)
+        {
+            if (tmp->bid == bid)
+            {
+                return tmp;
+            }
+            tmp = tmp->next;
+        }
+        genre = genre->next;
+    }
+    return NULL;
+}
+
+/* Helper Function to finnd genre by genre id */
+genre_t *findBookGenre(int gid)
+{
+    genre_t *tmp = library.genres;
+    while (tmp)
+    {
+        if (tmp->gid == gid)
+        {
+            return tmp;
+        }
+        tmp = tmp->next;
+    }
+    return NULL;
 }
 
 BookIndex *LeftRotate(BookIndex *x)
@@ -1248,14 +1325,17 @@ BookIndex *RightRotate(BookIndex *x)
 BookIndex *AVLInsert(BookIndex *root, book_t *book)
 {
 
-    if (!root)
-        return MakeNewBookIndex(book); /* If we arrived to end of subtree, add as new leaf */
+    if (!root) return MakeNewBookIndex(book); /* If we arrived to end of subtree, add as new leaf */
+
     if (strcmp(book->title, root->title) < 0)
+    {
         root->lc = AVLInsert(root->lc, book); /* If title is lexicographically smaller than the root title, go left */
+    }
     else if (strcmp(book->title, root->title) > 0)
+    {
         root->rc = AVLInsert(root->rc, book); /* If title is lexicographically smaller than the root title, go right */
-    else
-        return root; /* Don't insert duplicate title */
+    }
+    else return root; /* Don't insert duplicate title */
 
     /* Calculate height of current node */
     root->height = 1 + (max_height(height(root->lc), height(root->rc))); /* Add largest height from left and right child and then add + 1 for current node */
@@ -1288,6 +1368,33 @@ BookIndex *AVLInsert(BookIndex *root, book_t *book)
         return LeftRotate(root);
     }
     return root;
+}
+
+/* Helper that frees AVL node */
+void freeBookAVL(BookIndex *root)
+{
+    if(!root) return;
+    freeBookAVL(root->lc);
+    freeBookAVL(root->rc);
+    free(root);
+}
+
+/*Helper function to rebuild the genre's AVL */
+void rebuildGenreAVL(genre_t *genre)
+{
+    freeBookAVL(genre->bookIndex);
+    genre->bookIndex = NULL;
+    book_t *book;
+    book = genre->books;
+    if (!book)
+    {
+        return;
+    }
+    while (book)
+    {
+        genre->bookIndex = AVLInsert(genre->bookIndex, book);
+        book = book->next;
+    }
 }
 
 int height(BookIndex *n)
@@ -1588,15 +1695,26 @@ int CompareActivity(MemberActivity *member1, MemberActivity *member2)
         else return 1;
     }
 }
-
+/* Helper function to sort member activity for TOP printing */
 void sortMemberActivity(MemberActivity *Activity[], int n)
 {
     for (int i = 0; i < n-1; i++)
     {
         int BestIndex = i;
-        
+        for (int j = i+1; j < n; j++)
+        {
+            if (CompareActivity(Activity[j], Activity[BestIndex]) == 0)
+            {
+                BestIndex = j;
+            }
+            if (BestIndex != i)
+            {
+                MemberActivity* tmp = Activity[i];
+                Activity[i] = Activity[BestIndex];
+                Activity[BestIndex] = tmp;
+            }
+        }        
     }
-    
 }
 
 /* filepath: main.c */
