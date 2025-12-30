@@ -7,8 +7,8 @@
 #include <stddef.h>
 
 #define TITLE_MAX 128
-#define NAME_MAX  64
-
+#define NAME_MAX 64
+#define HEAP_MAX 64 /* Max capacity of heap */
 /*  Παγκόσμια θέση προβολών (ορίζεται από την εντολή S <slots>)
     Φροντίστε να το κάνετε define στο αντίστοιχο .c αρχείο, ως
     int SLOTS;
@@ -19,10 +19,11 @@ extern int SLOTS;
    LOAN: ενεργός δανεισμός (unsorted, O(1) insert/remove)
    Λίστα ανά Member με χρήση sentinel node.
    ----------------------------------------- */
-typedef struct loan {
-    int sid;            /* member id (ιδιοκτήτης της λίστας) */
-    int bid;            /* book id που έχει δανειστεί */
-    struct loan *next;  /* επόμενος δανεισμός του μέλους */
+typedef struct loan
+{
+   int sid;           /* member id (ιδιοκτήτης της λίστας) */
+   int bid;           /* book id που έχει δανειστεί */
+   struct loan *next; /* επόμενος δανεισμός του μέλους */
 } loan_t;
 
 /* -----------------------------------------
@@ -31,54 +32,75 @@ typedef struct loan {
    - Συμμετέχει στη διπλά συνδεδεμένη λίστα του Genre,
      ταξινομημένη φθίνοντα κατά avg.
    ----------------------------------------- */
-typedef struct book {
-    int  bid;                         /* book id (μοναδικό) */
-    int  gid;                         /* genre id (ιδιοκτησία λίστας) */
-    char title[TITLE_MAX];
+typedef struct book
+{
+   int bid; /* book id (μοναδικό) */
+   int gid; /* genre id (ιδιοκτησία λίστας) */
+   char title[TITLE_MAX];
 
-    /* Στατιστικά δημοτικότητας */
-    int sum_scores;                   /* άθροισμα έγκυρων βαθμολογιών */
-    int n_reviews;                    /* πλήθος έγκυρων βαθμολογιών */
-    int avg;                          /* cache: floor(sum_scores / n_reviews); 0 αν n_reviews=0 */
-    int lost_flag;                    /* 1 αν δηλωμένο lost, αλλιώς 0 */
+   /* Στατιστικά δημοτικότητας */
+   int sum_scores; /* άθροισμα έγκυρων βαθμολογιών */
+   int n_reviews;  /* πλήθος έγκυρων βαθμολογιών */
+   int avg;        /* cache: floor(sum_scores / n_reviews); 0 αν n_reviews=0 */
+   int lost_flag;  /* 1 αν δηλωμένο lost, αλλιώς 0 */
+   int heap_pos;   /* Θεση στο recHeap. Εαν δεν ειναι μεσα ειναι -1 */
+   /* Διπλά συνδεδεμένη λίστα του genre, ταξινομημένη κατά avg (desc). */
+   struct book *prev;
+   struct book *next;
 
-    /* Διπλά συνδεδεμένη λίστα του genre, ταξινομημένη κατά avg (desc). */
-    struct book *prev;
-    struct book *next;
-
-    /* Προαιρετικό: συνδέσεις σε global ευρετήρια αν κρατήσετε (όχι απαραίτητο) */
-    // struct book *next_global;         /* π.χ. unsorted λίστα όλων των βιβλίων */
+   /* Προαιρετικό: συνδέσεις σε global ευρετήρια αν κρατήσετε (όχι απαραίτητο) */
+   // struct book *next_global;         /* π.χ. unsorted λίστα όλων των βιβλίων */
 } book_t;
 
-/* 
-   BOOKNODE
+/*
+   BookIndex
    Acts as the node for the AVL tree that is used for storing book pointers
 */
-typedef struct BookNode
+typedef struct BookIndex
 {
    char title[TITLE_MAX]; /* Book title, used as key for BST/AVL insertion //Lexicographically: left = strcmp < 0 and right = strcmp > 0 */
-   book_t *book; /* Pointer that is used to save the address of the book, allows for quick O(logn) search over O(N) of the linked list*/
-   struct BookNode *lc;
-   struct BookNode *rc;
+   book_t *book;          /* Pointer that is used to save the address of the book, allows for quick O(logn) search over O(N) of the linked list*/
+   struct BookIndex *lc;
+   struct BookIndex *rc;
    int height;
-} BookNode;
+} BookIndex;
+
+/*
+   πεδία (struct MemberActivity):
+sid — Κωδικός μέλους.
+loans_count — Πλήθος δανεισμών.
+reviews_count — Πλήθος αξιολογήσεων.
+score_sum — Σύνολο βαθμολογιών που έχει δώσει.
+next — Δείκτης στον επόμενο κόμβο λίστας.
+
+*/
+typedef struct MemberActivity
+{
+   int sid;
+   int loans_count;
+   int reviews_count;
+   int score_sum;
+   char Name[NAME_MAX];
+   struct MemberActivity *next;
+} MemberActivity;
 
 /* -----------------------------------------
    MEMBER: μέλος βιβλιοθήκης
    - Κρατά unsorted λίστα ενεργών δανεισμών (loan_t) με χρήση sentinel node
    ----------------------------------------- */
-typedef struct member {
-    int  sid;                         /* member id (μοναδικό) */
-    char name[NAME_MAX];
+typedef struct member
+{
+   int sid; /* member id (μοναδικό) */
+   char name[NAME_MAX];
 
-    /* Λίστα ενεργών δανεισμών:
-       Uns. singly-linked με sentinel node:
-       - Εισαγωγή: O(1) push-front
-       - Διαγραφή γνωστού bid: O(1) αν κρατάτε prev pointer στη σάρωση */
-    loan_t* loans;
-
-    /* Μονοσυνδεδεμένη λίστα όλων των μελών ταξινομημένη κατά sid */
-    struct member *next;
+   /* Λίστα ενεργών δανεισμών:
+      Uns. singly-linked με sentinel node:
+      - Εισαγωγή: O(1) push-front
+      - Διαγραφή γνωστού bid: O(1) αν κρατάτε prev pointer στη σάρωση */
+   loan_t *loans;
+   MemberActivity *activity; /* Δεικτης προς τον κομβο της δραστιριοτητας του μέλους, για quick updating */
+   /* Μονοσυνδεδεμένη λίστα όλων των μελών ταξινομημένη κατά sid */
+   struct member *next;
 } member_t;
 
 /* -----------------------------------------
@@ -86,39 +108,53 @@ typedef struct member {
    - Κρατά ΔΙΠΛΑ συνδεδεμένη λίστα ΒΙΒΛΙΩΝ ταξινομημένη κατά avg (desc)
    - Κρατά και το αποτέλεσμα της τελευταίας D (display) για εκτύπωση PD
    ----------------------------------------- */
-typedef struct genre {
-    int  gid;                         /* genre id (μοναδικό) */
-    char name[NAME_MAX];
+typedef struct genre
+{
+   int gid; /* genre id (μοναδικό) */
+   char name[NAME_MAX];
 
-    /* διπλά συνδεδεμένη λίστα βιβλίων ταξινομημένη κατά avg φθίνουσα. */
-    book_t* books;
+   /* διπλά συνδεδεμένη λίστα βιβλίων ταξινομημένη κατά avg φθίνουσα. */
+   book_t *books;
 
-   BookNode *bookIndex; /* AVL node index of Genre */
+   BookIndex *bookIndex; /* AVL node index of Genre */
 
-    int lost_count;
-    int invalid_count;
-    /* Προσθεσα τις μεταβλητες για το Display */
-    int points;          /* Αποτέλεσμα τελευταίας κατανομής P: συνολικοί βαθμοί genre. */
-    int remainder;       /* Αποτέλεσμα τελευταίας κατανομής P: υπόλοιπο μετά την κατανομή QUOTA. */
-    /* Αποτέλεσμα τελευταίας κατανομής D: επιλεγμένα βιβλία για προβολή.
-       Αποθηκεύουμε απλώς pointers στα book_t (δεν αντιγράφουμε δεδομένα). */
-    int slots;            /* πόσα επιλέχθηκαν για προβολή σε αυτό το genre */
-    book_t **display;     /* δυναμικός πίνακας με pointers στα επιλεγμένα βιβλία για προβολή */
+   int lost_count;
+   int invalid_count;
+   /* Προσθεσα τις μεταβλητες για το Display */
+   int points;    /* Αποτέλεσμα τελευταίας κατανομής P: συνολικοί βαθμοί genre. */
+   int remainder; /* Αποτέλεσμα τελευταίας κατανομής P: υπόλοιπο μετά την κατανομή QUOTA. */
+   /* Αποτέλεσμα τελευταίας κατανομής D: επιλεγμένα βιβλία για προβολή.
+      Αποθηκεύουμε απλώς pointers στα book_t (δεν αντιγράφουμε δεδομένα). */
+   int slots;        /* πόσα επιλέχθηκαν για προβολή σε αυτό το genre */
+   book_t **display; /* δυναμικός πίνακας με pointers στα επιλεγμένα βιβλία για προβολή */
 
-
-    /* Μονοσυνδεδεμένη λίστα όλων των genres ταξινομημένη κατά gid (για εύκολη σάρωση). */
-    struct genre *next;
+   /* Μονοσυνδεδεμένη λίστα όλων των genres ταξινομημένη κατά gid (για εύκολη σάρωση). */
+   struct genre *next;
 } genre_t;
+
+/* Δομη σωρου
+   Έχει μέγιστη χωρητικότητα 64 δείκτες (HEAP_MAX)
+   Με το capacity μπορουμε να θεσουμε σωρους με λιγότερους δείκτες
+*/
+typedef struct RecHeap
+{
+   book_t *heap[HEAP_MAX];
+   int size, capacity;
+} RecHeap;
 
 /* -----------------------------------------
    LIBRARY: κεντρικός "ρίζας"
    - Κρατά λίστα Genres (sorted by gid)
    - Κρατά λίστα Members (sorted by sid)
    ----------------------------------------- */
-typedef struct library {
-    genre_t  *genres;     /* κεφαλή λίστας genres (sorted by gid) */
-    member_t *members;    /* διπλά συνδεδεμένη λίστα μελών (sorted by sid) */
-    // book_t   *books;      /* unsorted λίστα όλων των books (ευκολία αναζήτησης) — προαιρετικό */
+typedef struct library
+{
+   genre_t *genres;          /* κεφαλή λίστας genres (sorted by gid) */
+   member_t *members;        /* διπλά συνδεδεμένη λίστα μελών (sorted by sid) */
+   RecHeap *recommendations; /* δείκτης στον σωρό συστάσεων (μέγιστο σωρό). */
+   MemberActivity *activity; /* δείκτης στη λίστα δραστηριότητας μελών. */
+   // book_t   *books;      /* unsorted λίστα όλων των books (ευκολία αναζήτησης) — προαιρετικό */
+   int bookCount;            /* συνολικός αριθμός βιβλίων */
 } library_t;
 
 /* =========================
@@ -147,11 +183,15 @@ typedef struct library {
 /*
     Function declarations
 */
+void init_library();
 int setSlots(int slots);
 void processEvent(char *data);
 int insertGenre(library_t *library, genre_t *genreNode);
 int insertBook(genre_t *genre, book_t *book);
+
 int insertMember(library_t *library, member_t *member);
+MemberActivity *createNewActivity(member_t *member);
+
 int printGenre(library_t *library, int gid);
 int insertLoan(member_t *member, loan_t *loan);
 int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int status);
@@ -169,16 +209,40 @@ loan_t *createSentinelNode(int sid);
 void sortBook(genre_t *g, book_t *book);
 
 /* AVL FUNCTIONS */
-BookNode* MakeNewBookNode(book_t *book);
-BookNode *AVLLookUp(char* key, BookNode *root);
-BookNode* LeftRotate(BookNode* x);
-BookNode* RightRotate(BookNode* x);
-BookNode *AVLInsert(BookNode* root, book_t *book);
-int height(BookNode *n);
+BookIndex *MakeNewBookIndex(book_t *book);
+BookIndex *AVLLookUp(char *key, BookIndex *root);
+BookIndex *LeftRotate(BookIndex *x);
+BookIndex *RightRotate(BookIndex *x);
+BookIndex *AVLInsert(BookIndex *root, book_t *book);
+int height(BookIndex *n);
 int max_height(int x, int y);
-int get_balance(BookNode *n);
-void PreOrder(BookNode *root);
-void InOrder(BookNode *root);
-void Visit(BookNode* book);
+int get_balance(BookIndex *n);
+void PreOrder(BookIndex *root);
+void InOrder(BookIndex *root);
+void Visit(BookIndex *book);
 
+/* HEAP FUNCTIONS */
+/*
+   Helper Function
+   Returns the parent of the node.
+   Can and WILL be used for sorting during insert and finding where the book will actually place.
+*/
+int Parent(int index);
+void heap_insert(book_t *book, RecHeap *heap);
+int CalculatePriority(book_t *book1, book_t *book2);
+void BubbleUp(RecHeap *heap, int index);
+void heap_insert(book_t *book, RecHeap *heap);
+int heapLC(int index);
+int heapRC(int index);
+void BubbleDown(RecHeap *heap, int index);
+void HeapDelete(book_t *book, RecHeap *heap);
+book_t *HeapMax(RecHeap *heap);
+
+book_t *findBookID(int bid);
+genre_t *findBookGenre(int gid);
+void rebuildGenreAVL(genre_t *genre);
+int CompareActivity(MemberActivity *member1, MemberActivity *member2);
+void sortMemberActivity(MemberActivity *Activity[], int n);
+BookIndex *findBook(char title[TITLE_MAX]);
+void printRecHeap(RecHeap *heap);
 #endif

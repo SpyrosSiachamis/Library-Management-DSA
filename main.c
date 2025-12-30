@@ -5,7 +5,6 @@
 int SLOTS;
 library_t library;
 
-
 /*
     ----------------------- SOS -----------------------------
     Add an int return to the process event function to assure successfull event,
@@ -24,6 +23,7 @@ int main(int argc, char *argv[])
     else
     {
         printf("LIBRARY MANAGEMENT SYSTEM PROJECT\ncsd5503\n--------------------------\n");
+        init_library();
         FILE *file = fopen(argv[1], "r");
         char line[256];
         if (file == NULL)
@@ -91,18 +91,22 @@ void processEvent(char *data)
         /* %[^\"] reads all chars until closing quotation character (Book title) "*/
         if (sscanf(data, "BK %d %d \"%[^\"]\"", &book_ID, &genre_ID, book_title) == 3)
         {
-            book_t *bookNode = createBook(genre_ID, book_ID, book_title);
-            if (bookNode != NULL)
+            book_t *BookIndex = createBook(genre_ID, book_ID, book_title);
+            if (BookIndex != NULL)
             {
                 genre_t *genre = library.genres;
                 int found = 0;
 
                 while (genre != NULL)
                 {
-                    if (genre->gid == bookNode->gid)
+                    if (genre->gid == BookIndex->gid)
                     {
                         found = 1;
-                        result = insertBook(genre, bookNode);
+                        result = insertBook(genre, BookIndex);
+                        if (result == 0)
+                        {
+                            library.bookCount++;
+                        }
                         break;
                     }
                     genre = genre->next;
@@ -110,7 +114,7 @@ void processEvent(char *data)
 
                 if (!found)
                 {
-                    free(bookNode);
+                    free(BookIndex);
                 }
             }
         }
@@ -241,6 +245,7 @@ void processEvent(char *data)
                                 /* If book is found, return loan */
                                 found_genre = g_curr; /* save containing genre */
                                 result = returnLoan(member, g_curr, book_curr, score, lost_flag);
+                                
                                 found_book = 1;
                                 break;
                             }
@@ -253,6 +258,10 @@ void processEvent(char *data)
                     if (result == 0 && found_book == 1)
                     {
                         sortBook(found_genre, book_curr);
+                        if (lost_flag == 1)
+                        {
+                            HeapDelete(book_curr, library.recommendations);
+                        }
                     }
                 }
             }
@@ -264,7 +273,7 @@ void processEvent(char *data)
         if (sscanf(data, "PG %d", &gid) == 1)
         {
             result = printGenre(&library, gid);
-            
+
             /* printGenre doesnt print DONE on success */
             if (result == 0)
             {
@@ -272,7 +281,7 @@ void processEvent(char *data)
             }
         }
     }
-    else if (strncmp(data, "D ", 1) == 0)
+    else if (strncmp(data, "D ", 2) == 0)
     {
         result = allocateSlots();
     }
@@ -299,6 +308,145 @@ void processEvent(char *data)
             return;
         }
     }
+    else if (strncmp(data, "F ", 2) == 0)
+    {
+        char book_title[TITLE_MAX];
+        if (sscanf(data, "F \"%[^\"]\"", book_title) == 1)
+        {
+            BookIndex *bookNode = findBook(book_title);
+            if (!bookNode)
+            {
+                printf("NOT FOUND\n");
+                return;
+            }
+            book_t *book = bookNode->book;
+            printf("Book %d \"%s\" avg=%d\n", book->bid, book->title, book->avg);
+            return;
+        }
+    }
+    else if (strncmp(data, "TOP", 3) == 0)
+    {
+        int books;
+        if (sscanf(data, "TOP %d", &books) == 1)
+        {
+            if (books <= 0)
+            {
+                printf("IGNORED\n");
+                return;
+            }
+            /* copy of heap, so we dont destroy the original */
+            if (library.recommendations == NULL || library.recommendations->size == 0)
+            {
+                printf("Top Books:\n");
+                return;
+            }
+            RecHeap heap = *library.recommendations;
+            if (books > heap.size)
+            {
+                books = heap.size;
+            }
+            printf("Top Books:\n");
+            for (int i = 0; i < books; i++)
+            {
+                book_t *top = HeapMax(&heap);
+                if (top)
+                {
+                    printf("%d \"%s\" avg=%d\n", top->bid, top->title, top->avg);
+                }
+            }
+            return;
+        }
+    }
+    else if (strncmp(data, "AM" , 2) == 0)
+    {
+        int size = 0;
+        MemberActivity *current = library.activity;
+        while (current)
+        {
+            size++;
+            current = current->next;
+        }
+        /* If no active members, print nothing*/
+        if (size == 0)
+        {
+            printf("Active Members:\n");
+            return;
+        }
+        /* Array that holds member activities to use in output */
+        MemberActivity *sorted[size];
+        current = library.activity;
+        int i = 0;
+
+        /* Fill up the array with member activity */
+        while (current && i<size)
+        {
+            sorted[i] = current;
+            current = current->next;
+            i++;
+        }
+        /* Sort the array */
+        sortMemberActivity(sorted, size);
+        printf("Active Members:\n");
+        for (int i = 0; i < size; i++)
+        {
+            printf("%d %s loans=%d reviews=%d\n", sorted[i]->sid, sorted[i]->Name, sorted[i]->loans_count, sorted[i]->reviews_count);
+        }
+        return;
+    }
+    else if (strncmp(data, "U", 1) == 0)
+    {
+        char newTitle[TITLE_MAX];
+        int bookID;
+        if (sscanf(data, "U %d \"%[^\"]\"", &bookID, newTitle) == 2)
+        {
+            /* Find the books ID*/
+            book_t *book = findBookID(bookID);
+            if (book)
+            {
+                /* If a book exists inside the library with the title already, dont update */
+                BookIndex *duplicateBook = findBook(newTitle);
+                if (!(duplicateBook && duplicateBook->book != book))
+                {
+                    genre_t *bookGenre = findBookGenre(book->gid);
+                    if(bookGenre)
+                    {
+                        /* update books title, then rebuild the AVL */
+                        strcpy(book->title, newTitle);
+                        rebuildGenreAVL(bookGenre);
+                        result = 0;
+                    }
+                }
+            }
+        }
+    }
+    else if (strncmp(data, "X", 1) == 0)
+    {
+        int totalSum = 0;
+        int members = 0;
+        int loan_count = 0;
+        int review_count = 0;
+        printf("Stats:\n");
+        MemberActivity *Activity = library.activity;
+        while(Activity)
+        {
+            totalSum += Activity->score_sum;
+            loan_count += Activity->loans_count;
+            review_count += Activity->reviews_count;
+            members++;
+            Activity = Activity->next;
+        }
+        double avg = 0.0;
+        if (review_count)
+        {
+            avg = (totalSum / (float)review_count);
+        }
+        printf("Amount of Books: %d\nAmount of Members: %d\nAmount of Active Loans: %d\nAverage score of all books: %.2f\n",library.bookCount, members, loan_count, avg);
+        return;
+    }
+    else if (strncmp(data, "BF ", 3) == 0)
+    {
+        // mplampla
+    }
     /* If event was not recognized or line is empty, exit function */
     else
     {
@@ -313,6 +461,23 @@ void processEvent(char *data)
     printf("IGNORED\n");
 }
 
+void init_library()
+{
+    library.genres = NULL;
+    library.members = NULL;
+    library.activity = NULL;
+    library.recommendations = malloc(sizeof(RecHeap));
+    if (!library.recommendations) exit(1);
+    library.recommendations->size = 0;
+    library.recommendations->capacity = HEAP_MAX;
+    for (int i = 0; i < HEAP_MAX; i++)
+    {
+        library.recommendations->heap[i] = NULL;
+    }
+    library.bookCount = 0;
+    SLOTS = 0;
+}
+
 /*
     Sets the total number of available display slots for the library.
     These get allocated later on for every genre respectively.
@@ -325,17 +490,20 @@ int setSlots(int slots)
 /* Helper Function to create Genre Node */
 genre_t *createGenre(int gid, char name[NAME_MAX])
 {
-    genre_t *genre = (genre_t *)malloc(sizeof(genre_t));
+    genre_t *genre = malloc(sizeof(genre_t));
     if (genre == NULL)
-    {
-        printf("Failure to allocate genre memory\n");
-        printf("G IGNORED\n");
         return NULL;
-    }
 
     genre->gid = gid;
     genre->books = NULL;
     genre->next = NULL;
+    genre->bookIndex = NULL;
+    genre->lost_count = 0;
+    genre->display = NULL;
+    genre->invalid_count = 0;
+    genre->points = 0;
+    genre->slots = 0;
+    genre->remainder = 0;
     strcpy(genre->name, name);
     return genre;
 }
@@ -374,7 +542,6 @@ int insertGenre(library_t *library, genre_t *genreNode)
     if (tmp != NULL && tmp->gid == genreNode->gid || (prev != NULL && prev->gid == genreNode->gid))
     {
         free(genreNode);
-        /* Returns 1 for IGNORED */
         return 1;
     }
 
@@ -391,11 +558,9 @@ int insertGenre(library_t *library, genre_t *genreNode)
 /* Helper Function to create Book Node */
 book_t *createBook(int gid, int bid, char title[NAME_MAX])
 {
-    book_t *book = (book_t *)malloc(sizeof(book_t));
+    book_t *book = malloc(sizeof(book_t));
     if (book == NULL)
     {
-        printf("Failure to allocate book memory\n");
-        printf("BK IGNORED\n");
         return NULL;
     }
 
@@ -408,6 +573,7 @@ book_t *createBook(int gid, int bid, char title[NAME_MAX])
     book->n_reviews = 0;
     book->avg = 0;
     book->sum_scores = 0;
+    book->heap_pos = -1;
     strcpy(book->title, title);
     return book;
 }
@@ -415,7 +581,7 @@ book_t *createBook(int gid, int bid, char title[NAME_MAX])
 /* Helper Function to create Member Node */
 member_t *createMember(int sid, char name[NAME_MAX])
 {
-    member_t *memberNode = (member_t *)malloc(sizeof(member_t));
+    member_t *memberNode = malloc(sizeof(member_t));
     if (memberNode == NULL)
     {
         return NULL;
@@ -424,15 +590,30 @@ member_t *createMember(int sid, char name[NAME_MAX])
     memberNode->next = NULL;
     memberNode->sid = sid;
     strcpy(memberNode->name, name);
+    MemberActivity *Activity = createNewActivity(memberNode);
+    memberNode->activity = Activity;
     return memberNode;
+}
+
+MemberActivity *createNewActivity(member_t *member)
+{
+    MemberActivity *Activity = malloc(sizeof(MemberActivity));
+    if (!Activity)
+        return NULL;
+    Activity->loans_count = 0;
+    Activity->reviews_count = 0;
+    Activity->score_sum = 0;
+    strcpy(Activity->Name, member->name);
+    Activity->sid = member->sid;
+    Activity->next = NULL;
+    return Activity;
 }
 
 loan_t *createLoan(int sid, int bid)
 {
-    loan_t *loan = (loan_t *)malloc(sizeof(loan_t));
+    loan_t *loan = malloc(sizeof(loan_t));
     if (loan == NULL)
     {
-        printf("L IGNORED\n");
         return NULL;
     }
     loan->sid = sid;
@@ -443,12 +624,9 @@ loan_t *createLoan(int sid, int bid)
 /* Helper Function to create sentinel node for linked lists that use it */
 loan_t *createSentinelNode(int sid)
 {
-    loan_t *sentinel = (loan_t *)malloc(sizeof(loan_t));
+    loan_t *sentinel = malloc(sizeof(loan_t));
     if (sentinel == NULL)
-    {
-        printf("L IGNORED\n");
         return NULL;
-    }
     sentinel->next = NULL;
     sentinel->bid = -1;
     sentinel->sid = sid;
@@ -461,15 +639,15 @@ loan_t *createSentinelNode(int sid)
     If rating is equal, sorting is based on bid
     Function runs on BK event.
 */
-int insertBook(genre_t *genre, book_t *bookNode)
+int insertBook(genre_t *genre, book_t *BookIndex)
 {
     /* Check for duplicate bid */
     book_t *tmp = genre->books;
     while (tmp != NULL)
     {
-        if (tmp->bid == bookNode->bid)
+        if (tmp->bid == BookIndex->bid)
         {
-            free(bookNode);
+            free(BookIndex);
             return 1;
         }
         tmp = tmp->next;
@@ -478,9 +656,10 @@ int insertBook(genre_t *genre, book_t *bookNode)
     /* Insert at head if books == NULL */
     if (genre->books == NULL)
     {
-        genre->books = bookNode;
-        bookNode->next = NULL;
-        bookNode->prev = NULL;
+        genre->books = BookIndex;
+        BookIndex->next = NULL;
+        BookIndex->prev = NULL;
+        genre->bookIndex = AVLInsert(genre->bookIndex, BookIndex);
         return 0;
     }
 
@@ -492,12 +671,12 @@ int insertBook(genre_t *genre, book_t *bookNode)
     while (current != NULL)
     {
         /* Higher avg */
-        if (bookNode->avg > current->avg)
+        if (BookIndex->avg > current->avg)
         {
             break;
         }
         /* Same avg, lower bid first */
-        if (bookNode->avg == current->avg && bookNode->bid < current->bid)
+        if (BookIndex->avg == current->avg && BookIndex->bid < current->bid)
         {
             break;
         }
@@ -508,23 +687,23 @@ int insertBook(genre_t *genre, book_t *bookNode)
     /* Insert at head */
     if (prev == NULL)
     {
-        bookNode->next = genre->books;
-        bookNode->prev = NULL;
-        genre->books->prev = bookNode;
-        genre->books = bookNode;
+        BookIndex->next = genre->books;
+        BookIndex->prev = NULL;
+        genre->books->prev = BookIndex;
+        genre->books = BookIndex;
     }
     /* Insert in middle or at end */
     else
     {
-        bookNode->next = current;
-        bookNode->prev = prev;
-        prev->next = bookNode;
+        BookIndex->next = current;
+        BookIndex->prev = prev;
+        prev->next = BookIndex;
         if (current != NULL)
         {
-            current->prev = bookNode;
+            current->prev = BookIndex;
         }
     }
-
+    genre->bookIndex = AVLInsert(genre->bookIndex, BookIndex);
     return 0;
 }
 
@@ -545,6 +724,12 @@ int insertMember(library_t *library, member_t *member)
     if (library->members == NULL)
     {
         library->members = member;
+        /* link activity to MemberActivity List */
+        if (member->activity != NULL)
+        {
+            member->activity->next = library->activity;
+            library->activity = member->activity;
+        }
         return 0;
     }
     /* If list is not NULL and member sid < head sid, make genreNode head of the list */
@@ -552,6 +737,12 @@ int insertMember(library_t *library, member_t *member)
     {
         member->next = current;
         library->members = member;
+        /* link activity to MemberActivity List */
+        if (member->activity != NULL)
+        {
+            member->activity->next = library->activity;
+            library->activity = member->activity;
+        }
         return 0;
     }
 
@@ -565,6 +756,10 @@ int insertMember(library_t *library, member_t *member)
     /* Check last member node to ensure no duplicates*/
     if (current != NULL && current->sid == member->sid)
     {
+        if (member->activity != NULL)
+        {
+            free(member->activity);
+        }
         free(member);
         return 1;
     }
@@ -574,6 +769,12 @@ int insertMember(library_t *library, member_t *member)
     if (prev != NULL)
     {
         prev->next = member;
+    }
+    /* link activity to MemberActivity List */
+    if (member->activity != NULL)
+    {
+        member->activity->next = library->activity;
+        library->activity = member->activity;
     }
     return 0;
 }
@@ -602,12 +803,14 @@ int insertLoan(member_t *member, loan_t *loan)
         }
         loan->next = sentinel;
         member->loans = loan;
+        member->activity->loans_count++;
         return 0;
     }
 
     /* Insert at head */
     loan->next = member->loans;
     member->loans = loan;
+    member->activity->loans_count++;
     return 0;
 }
 
@@ -699,7 +902,10 @@ int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int 
     {
         book->sum_scores += sc;
         book->n_reviews++;
+        member->activity->reviews_count++; /* increment review count */
+        member->activity->score_sum += sc;
         book->avg = (book->sum_scores / book->n_reviews); /* Calculate avg review score */
+        heap_insert(book, library.recommendations);
     }
     else
     {
@@ -724,6 +930,7 @@ int returnLoan(member_t *member, genre_t *genre, book_t *book, char *score, int 
     {
         prev->next = curr->next;
     }
+    member->activity->loans_count--;
     /* Free the deleted loan node */
     free(curr);
     return 0;
@@ -857,10 +1064,10 @@ int allocateSlots()
     tmp = library.genres;
     while (tmp != NULL)
     {
-          if (QUOTA > 0)
-          {
-             /* Allocate seats */
-             {
+        if (QUOTA > 0)
+        {
+            /* Allocate seats */
+            {
                 int pts = tmp->points;
                 int g_seats = seats(tmp, pts, QUOTA);
                 tmp->slots = g_seats;
@@ -937,9 +1144,9 @@ int allocateSlots()
                 if (book->lost_flag == 0)
                 {
                     /* Save pointer to the book */
-                    *curr_disp = book; 
+                    *curr_disp = book;
                     /* Move pointer ahead */
-                    curr_disp++;       
+                    curr_disp++;
                     /* Decrease seats left */
                     seats_left--;
                 }
@@ -1006,7 +1213,7 @@ void printDisplayedBooks()
 {
     printf("Display\n");
     genre_t *tmp = library.genres;
-    
+
     /* Check if any genres exist or if the library has any slots available */
     if (tmp == NULL || SLOTS == 0)
     {
@@ -1024,7 +1231,7 @@ void printDisplayedBooks()
             /* At least one display exists */
             display_exists = 1;
             printf("%d:\n", tmp->gid);
-            
+
             /* Print displayed books */
             int seats_left = tmp->slots;
             book_t **display_tmp = tmp->display;
@@ -1051,95 +1258,522 @@ void printDisplayedBooks()
     }
 }
 
-/* Function that creates a new BookNode node for the AVL tree */
-BookNode* MakeNewBookNode(book_t *book)
+/* Function that creates a new BookIndex node for the AVL tree */
+BookIndex *MakeNewBookIndex(book_t *book)
 {
-    BookNode* node = malloc(sizeof(BookNode));
-    if(!node) return NULL;
-    strcpy(node->title,book->title);
+    BookIndex *node = malloc(sizeof(BookIndex));
+    if (!node)
+        return NULL;
+    strcpy(node->title, book->title);
     node->book = book;
-    node->height =  1;
+    node->height = 1;
     node->rc = node->lc = NULL;
     return node;
 }
 
-BookNode *AVLLookUp(char* key, BookNode *book)
+BookIndex *AVLLookUp(char *key, BookIndex *book)
 {
     if (!book) return NULL;
-    if (strcmp(key,book->title) == 0) return book;
-    if (strcmp(key,book->title) < 0) return AVLLookUp(key, book->lc);
+    if (strcmp(key, book->title) == 0) return book;
+    if (strcmp(key, book->title) < 0) return AVLLookUp(key, book->lc);
     return AVLLookUp(key, book->rc);
 }
-
-BookNode* LeftRotate(BookNode* x)
+/* Search book list*/
+book_t *findBookID(int bid)
 {
-    BookNode* rightChild = x->rc;
-    BookNode* LeftChildR = rightChild->lc; /* Left Child of rightChild of x */
+    genre_t *genre = library.genres;
+    book_t *tmp;
+    while(genre)
+    {
+        tmp = genre->books;
+        while (tmp)
+        {
+            if (tmp->bid == bid)
+            {
+                return tmp;
+            }
+            tmp = tmp->next;
+        }
+        genre = genre->next;
+    }
+    return NULL;
+}
+
+/* Helper Function to finnd genre by genre id */
+genre_t *findBookGenre(int gid)
+{
+    genre_t *tmp = library.genres;
+    while (tmp)
+    {
+        if (tmp->gid == gid)
+        {
+            return tmp;
+        }
+        tmp = tmp->next;
+    }
+    return NULL;
+}
+
+BookIndex *LeftRotate(BookIndex *x)
+{
+    BookIndex *rightChild = x->rc;
+    BookIndex *LeftChildR = rightChild->lc; /* Left Child of rightChild of x */
 
     /* Rotation */
     rightChild->lc = x; /* Set left child of right child of x x itself. */
     x->rc = LeftChildR; /* set the left child of the right child of righChild of x as leftchild of x */
 
     x->height = max_height(height(x->lc), height(x->rc)) + 1;
-    
+
     /* New root of subtree */
     rightChild->height = max_height(height(rightChild->lc), height(rightChild->rc)) + 1;
 
     return rightChild;
 }
 
-BookNode* RightRotate(BookNode* x)
+BookIndex *RightRotate(BookIndex *x)
 {
-    BookNode* leftChild = x->lc;
-    BookNode* rightChildL = leftChild->rc; /* Right child of leftChild of x */
+    BookIndex *leftChild = x->lc;
+    BookIndex *rightChildL = leftChild->rc; /* Right child of leftChild of x */
 
     /* Rotation */
-    leftChild->rc = x; /* Pivot leftChild so its right child becomes x */
+    leftChild->rc = x;   /* Pivot leftChild so its right child becomes x */
     x->lc = rightChildL; /* Move right child of leftChild to left subtree of x */
 
     x->height = max_height(height(x->lc), height(x->rc)) + 1;
-    
+
     /* New root of subtree */
     leftChild->height = max_height(height(leftChild->lc), height(leftChild->rc)) + 1;
 
     return leftChild;
 }
 
-int height(BookNode* n)
+BookIndex *AVLInsert(BookIndex *root, book_t *book)
 {
-    if (!n) return 0;
+
+    if (!root) return MakeNewBookIndex(book); /* If we arrived to end of subtree, add as new leaf */
+
+    if (strcmp(book->title, root->title) < 0)
+    {
+        root->lc = AVLInsert(root->lc, book); /* If title is lexicographically smaller than the root title, go left */
+    }
+    else if (strcmp(book->title, root->title) > 0)
+    {
+        root->rc = AVLInsert(root->rc, book); /* If title is lexicographically smaller than the root title, go right */
+    }
+    else return root; /* Don't insert duplicate title */
+
+    /* Calculate height of current node */
+    root->height = 1 + (max_height(height(root->lc), height(root->rc))); /* Add largest height from left and right child and then add + 1 for current node */
+
+    int balance = get_balance(root);
+
+    /* LL */
+    if (balance > 1 && (strcmp(book->title, root->lc->title) < 0))
+    {
+        return RightRotate(root);
+    }
+
+    /* RR */
+    else if (balance < -1 && (strcmp(book->title, root->rc->title) > 0))
+    {
+        return LeftRotate(root);
+    }
+
+    /* LR */
+    else if (balance > 1 && (strcmp(book->title, root->lc->title) > 0))
+    {
+        root->lc = LeftRotate(root->lc);
+        return RightRotate(root);
+    }
+
+    /* RL */
+    else if (balance < -1 && (strcmp(book->title, root->rc->title) < 0))
+    {
+        root->rc = RightRotate(root->rc);
+        return LeftRotate(root);
+    }
+    return root;
+}
+
+/* Helper that frees AVL node */
+void freeBookAVL(BookIndex *root)
+{
+    if(!root) return;
+    freeBookAVL(root->lc);
+    freeBookAVL(root->rc);
+    free(root);
+}
+
+/*Helper function to rebuild the genre's AVL */
+void rebuildGenreAVL(genre_t *genre)
+{
+    freeBookAVL(genre->bookIndex);
+    genre->bookIndex = NULL;
+    book_t *book;
+    book = genre->books;
+    if (!book)
+    {
+        return;
+    }
+    while (book)
+    {
+        genre->bookIndex = AVLInsert(genre->bookIndex, book);
+        book = book->next;
+    }
+}
+
+int height(BookIndex *n)
+{
+    if (!n)
+        return 0;
     return n->height;
 }
 
 int max_height(int x, int y)
 {
-    if (x>y) return x;
-    else return y;
+    if (x > y)
+        return x;
+    else
+        return y;
 }
 
-int get_balance(BookNode *n) {
-    if (!n) return 0;
+int get_balance(BookIndex *n)
+{
+    if (!n)
+        return 0;
     return height(n->lc) - height(n->rc);
 }
 
-void PreOrder(BookNode *root)
-{
-    if (!root) return;
-    Visit(root);
-    PreOrder(root->left);
-    PreOrder(root->right);
-}
-
-void InOrder(BookNode *root)
+void PreOrder(BookIndex *root)
 {
     if (!root)
         return;
-    InOrder(root->left);
     Visit(root);
-    InOrder(root->right);
+    PreOrder(root->lc);
+    PreOrder(root->rc);
 }
 
-void Visit(BookNode *book)
+void InOrder(BookIndex *root)
+{
+    if (!root)
+        return;
+    InOrder(root->lc);
+    Visit(root);
+    InOrder(root->rc);
+}
+
+void Visit(BookIndex *book)
 {
     printf("Key: %s, Data: %s\n", book->title, book->book->title);
+}
+
+/* HEAP */
+int Parent(int index)
+{
+    return (index - 1) / 2;
+}
+
+/*  Calculates which of the 2 books has priority in the heap
+    If 0, no switching books
+    If 1, B1 has priority so we switch
+*/
+int CalculatePriority(book_t *book1, book_t *book2)
+{
+    /* B1 has priority */
+    if (book1->avg > book2->avg)
+        return 1;
+    /* B2 has priority */
+    else if (book1->avg < book2->avg)
+        return 0;
+    /*b1 and b2 have same avg. B1 has priority */
+    else if (book1->bid < book2->bid)
+        return 1;
+
+    /*b1 and b2 have same avg. B2 has priority */
+    else if (book1->bid > book2->bid)
+        return 0;
+
+    return 0;
+}
+
+void BubbleUp(RecHeap *heap, int index)
+{
+    while (index > 0 && CalculatePriority(heap->heap[index], heap->heap[Parent(index)]))
+    {
+        /* Swap new book with it's parent */
+        book_t *tmp = heap->heap[index];
+
+        heap->heap[index] = heap->heap[Parent(index)];
+
+        /* Update book with less priority heap pos */
+        heap->heap[index]->heap_pos = index;
+
+        heap->heap[Parent(index)] = tmp;
+        /* Move index to the parent */
+        index = Parent(index);
+    }
+    /* update book heap_pos field*/
+    heap->heap[index]->heap_pos = index;
+}
+
+void BubbleDown(RecHeap *heap, int index)
+{
+    int left = heapLC(index);
+    int right = heapRC(index);
+    int size = heap->size;
+    int largest = index;
+
+    /* if left child exists and has bigger priority, switch largest with LC */
+    if (left < size && CalculatePriority(heap->heap[left], heap->heap[largest]))
+    {
+        largest = left;
+    }
+
+    /* if right child exists and has bigger priority, switch largest with RC */
+    if (right < size && CalculatePriority(heap->heap[right], heap->heap[largest]))
+    {
+        largest = right;
+    }
+
+    /* If largest is not index, a child thats larger was found and we swap positions */
+    if (largest != index)
+    {
+        book_t *tmp = heap->heap[index];
+
+        heap->heap[index] = heap->heap[largest];
+
+        /* Update book with less priority heap pos */
+        heap->heap[index]->heap_pos = index;
+
+        heap->heap[largest] = tmp;
+        heap->heap[largest]->heap_pos = largest;
+        /* Move index to the parent */
+        BubbleDown(heap, largest);
+    }
+}
+
+void heap_insert(book_t *book, RecHeap *heap)
+{
+    if (!heap || !book)
+        return;
+    /* If book is already in heap, just update its position based on the avg */
+    if (book->heap_pos != -1)
+    {
+        int index = book->heap_pos;
+        int parent = Parent(index);
+        if (index > 0 && CalculatePriority(heap->heap[index], heap->heap[parent]))
+        {
+            BubbleUp(heap, index);
+        }
+        else
+        {
+            BubbleDown(heap, index);
+        }
+        return;
+    }
+
+    /* If heap is full, find first child and then iterate through the children to find the smallest priority to replace with the newer one if its a higher priority */
+    if (heap->size == HEAP_MAX)
+    {
+        /* use first leaf as starting minimum */
+        int min = heap->size / 2;
+        /* compare first leaf with every leaf right after it */
+        for (int i = (heap->size / 2) + 1; i < heap->size; i++)
+        {
+            if (heap->heap[i]->avg < heap->heap[min]->avg)
+            {
+                min = i;
+            }
+            else if (heap->heap[i]->avg == heap->heap[min]->avg && heap->heap[i]->bid > heap->heap[min]->bid)
+            {
+                min = i;
+            }
+        }
+        /* if new book avg is greater than smallest avg in heap, replace it and then bubble up if the new book has a better rating than it's new parent */
+        if (CalculatePriority(book, heap->heap[min]))
+        {
+            heap->heap[min]->heap_pos = -1;
+            heap->heap[min] = book;
+            book->heap_pos = min;
+            BubbleUp(heap, min);
+        }
+        return;
+    }
+
+    /* insert book into heap if it isnt full */
+    int NewBookIndex = heap->size;
+    heap->heap[NewBookIndex] = book;
+    heap->size++;
+
+    /* Bubble up from last position in array while the index is > 0 and the new book has priority */
+    BubbleUp(heap, NewBookIndex);
+}
+
+int heapLC(int index)
+{
+    return (2 * index + 1);
+}
+
+int heapRC(int index)
+{
+    return (2 * index + 2);
+}
+
+void HeapDelete(book_t *book, RecHeap *heap)
+{
+    if (!heap || !book || heap->size == 0 || book->heap_pos == -1)
+        return;
+    int index = book->heap_pos;
+    int last = heap->size - 1;
+
+    if (index == last)
+    {
+        heap->heap[index] = NULL;
+        heap->size--;
+        book->heap_pos = -1;
+        return;
+    }
+
+    book_t *replacement = heap->heap[last];
+    heap->heap[index] = replacement;
+    heap->heap[last] = NULL;
+    heap->size--;
+
+    replacement->heap_pos = index;
+    book->heap_pos = -1;
+    int parent = Parent(index);
+
+    if (index > 0 && CalculatePriority(heap->heap[index], heap->heap[parent]))
+    {
+        BubbleUp(heap, index);
+    }
+    else
+    {
+        BubbleDown(heap, index);
+    }
+}
+
+BookIndex *findBook(char title[TITLE_MAX])
+{
+    genre_t *bookGenre = library.genres;
+    BookIndex *book = NULL;
+    while (bookGenre != NULL)
+    {
+        book = AVLLookUp(title, bookGenre->bookIndex);
+        if ((book != NULL) && (strcmp(title, book->title) == 0))
+        {
+            return book;
+        }
+        bookGenre = bookGenre->next;
+    }
+    return NULL;
+}
+
+void BubbleDownMax(RecHeap *heap, int index)
+{
+    int left = heapLC(index);
+    int right = heapRC(index);
+    int size = heap->size;
+    int largest = index;
+
+    if (left < size && CalculatePriority(heap->heap[left], heap->heap[largest]))
+    {
+        largest = left;
+    }
+
+    if (right < size && CalculatePriority(heap->heap[right], heap->heap[largest]))
+    {
+        largest = right;
+    }
+
+    if (largest != index)
+    {
+
+        book_t *tmp = heap->heap[index];
+        heap->heap[index] = heap->heap[largest];
+        heap->heap[largest] = tmp;
+        BubbleDownMax(heap, largest);
+    }
+}
+
+book_t *HeapMax(RecHeap *heap)
+{
+    if (!heap || heap->size == 0)
+        return NULL;
+    book_t *max = heap->heap[0];
+    book_t *last = heap->heap[heap->size - 1];
+    heap->heap[0] = last;
+    heap->size--;
+    BubbleDownMax(heap, 0);
+    return max;
+}
+/* Compares both members activity. If equal returns based on sid */
+int CompareActivity(MemberActivity *member1, MemberActivity *member2)
+{
+    int score1 = member1->loans_count + member1->reviews_count;
+    int score2 = member2->loans_count + member2->reviews_count;
+    if(score1 > score2) return 1;
+    else if(score1 < score2) return 0;
+    else
+    {
+        if (member1->sid < member2->sid) return 1;
+        else return 0;
+    }
+}
+/* Helper function to sort member activity for TOP printing */
+void sortMemberActivity(MemberActivity *Activity[], int n)
+{
+    for (int i = 0; i < n-1; i++)
+    {
+        int BestIndex = i;
+        for (int j = i+1; j < n; j++)
+        {
+            if (CompareActivity(Activity[j], Activity[BestIndex]))
+            {
+                BestIndex = j;
+            }
+            if (BestIndex != i)
+            {
+                MemberActivity* tmp = Activity[i];
+                Activity[i] = Activity[BestIndex];
+                Activity[BestIndex] = tmp;
+            }
+        }        
+    }
+}
+
+
+/* filepath: main.c */
+/*
+   Debug helper: prints current contents of the recommendation heap.
+   Shows array index, book id, and avg for every occupied slot.
+*/
+void printRecHeap(RecHeap *heap)
+{
+    if (heap == NULL)
+    {
+        printf("RecHeap: (null)\n");
+        return;
+    }
+
+    printf("RecHeap (size=%d):\n", heap->size);
+    if (heap->size == 0)
+    {
+        printf("(empty)\n");
+        return;
+    }
+
+    for (int i = 0; i < heap->size; i++)
+    {
+        book_t *node = heap->heap[i];
+        if (node != NULL)
+        {
+            printf("[%d] bid=%d avg=%d\n", i, node->bid, node->avg);
+        }
+        else
+        {
+            printf("[%d] (null)\n", i);
+        }
+    }
 }
